@@ -28,7 +28,7 @@ class App extends ConsumerWidget {
     final _router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Royal Reserve',
+      title: 'Gigways Hero',
       routerDelegate: _router.routerDelegate,
       routeInformationParser: _router.routeInformationParser,
       routeInformationProvider: _router.routeInformationProvider,

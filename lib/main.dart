@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/utils/ui_utils.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,7 +29,7 @@ class App extends ConsumerWidget {
     final _router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Gigways Hero',
+      title: AppConstant.appName,
       routerDelegate: _router.routerDelegate,
       routeInformationParser: _router.routeInformationParser,
       routeInformationProvider: _router.routeInformationProvider,

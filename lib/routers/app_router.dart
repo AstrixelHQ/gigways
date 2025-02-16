@@ -14,7 +14,7 @@ final GoRouter _router = GoRouter(
   debugLogDiagnostics: true,
 );
 
-@TypedGoRoute<SplashRoute>(path: SplashPage.route)
+@TypedGoRoute<SplashRoute>(path: SplashPage.path)
 class SplashRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {

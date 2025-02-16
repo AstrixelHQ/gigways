@@ -12,7 +12,10 @@ enum AppColorToken {
   textDisabled(Color(0xFF9E9E9E)),
   background(Color(0xFFFFFBFE)),
   surface(Color(0xFFFFFBFE)),
+  black(Color(0xFF000000)),
+  lightDark(Color(0xFF1A1A1A)),
   surfaceVariant(Color(0xFFE7E0EC));
+
 
   final Color color;
   const AppColorToken(this.color);

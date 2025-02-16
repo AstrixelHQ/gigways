@@ -46,3 +46,4 @@ app.*.map.json
 
 *.freezed.dart
 *.g.dart
+android/app/.cxx/

@@ -85,10 +85,10 @@ class _StrikePageState extends ConsumerState<StrikePage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColorToken.black.value.withOpacity(0.5),
+            color: AppColorToken.black.value.withAlpha(50),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColorToken.golden.value.withOpacity(0.3),
+              color: AppColorToken.golden.value.withAlpha(30),
             ),
           ),
           child: Column(
@@ -141,7 +141,7 @@ class _StrikePageState extends ConsumerState<StrikePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColorToken.white.value.withOpacity(0.1),
+                  color: AppColorToken.white.value.withAlpha(10),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -207,10 +207,10 @@ class _StrikePageState extends ConsumerState<StrikePage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColorToken.black.value.withOpacity(0.5),
+              color: AppColorToken.black.value.withAlpha(50),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppColorToken.golden.value.withOpacity(0.3),
+                color: AppColorToken.golden.value.withAlpha(30),
               ),
             ),
             child: Column(
@@ -306,10 +306,10 @@ class _StrikePageState extends ConsumerState<StrikePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColorToken.black.value.withOpacity(0.5),
+        color: AppColorToken.black.value.withAlpha(50),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColorToken.golden.value.withOpacity(0.3),
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
       ),
       child: Column(
@@ -409,7 +409,7 @@ class ProgressCirclePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
     final paint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withAlpha(30)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8;
 

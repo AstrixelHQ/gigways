@@ -39,7 +39,7 @@ class ForgotPasswordPage extends ConsumerWidget {
                   'Enter your email address to receive a password reset link',
                   style: AppTextStyle.size(16)
                       .regular
-                      .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
                 ),
                 48.verticalSpace,
 
@@ -134,7 +134,7 @@ class ForgotPasswordPage extends ConsumerWidget {
                 height: 64,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColorToken.golden.value.withOpacity(0.1),
+                  color: AppColorToken.golden.value.withAlpha(10),
                 ),
                 child: Icon(
                   Icons.check_rounded,
@@ -154,7 +154,7 @@ class ForgotPasswordPage extends ConsumerWidget {
                 'Please check your email inbox and follow the instructions to reset your password.',
                 style: AppTextStyle.size(14)
                     .regular
-                    .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                    .withColor(AppColorToken.white..color.withAlpha(70)),
                 textAlign: TextAlign.center,
               ),
               24.verticalSpace,

@@ -21,7 +21,7 @@ class SocialButton extends StatelessWidget {
         height: 56,
         decoration: BoxDecoration(
           border: Border.all(
-            color: AppColorToken.white.value.withOpacity(0.3),
+            color: AppColorToken.white.value.withAlpha(30),
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -30,7 +30,10 @@ class SocialButton extends StatelessWidget {
             icon,
             width: 24,
             height: 24,
-            color: AppColorToken.white.value,
+            colorFilter: ColorFilter.mode(
+              AppColorToken.white.value,
+              BlendMode.srcIn,
+            ),
           ),
         ),
       ),

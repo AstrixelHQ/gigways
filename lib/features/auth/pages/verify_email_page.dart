@@ -42,7 +42,7 @@ class VerifyEmailPage extends ConsumerWidget {
                   text: TextSpan(
                     style: AppTextStyle.size(16)
                         .regular
-                        .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                        .withColor(AppColorToken.white..color.withAlpha(70)),
                     children: [
                       const TextSpan(
                         text: 'We\'ve sent a verification code to\n',
@@ -131,7 +131,7 @@ class VerifyEmailPage extends ConsumerWidget {
                               timerCount == 0
                                   ? AppColorToken.golden
                                   : AppColorToken.white
-                                ..color.withOpacity(0.5),
+                                ..color.withAlpha(50),
                             ),
                       ),
                     ),
@@ -169,13 +169,13 @@ class OTPDigitField extends StatelessWidget {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: AppColorToken.white.value.withOpacity(0.3),
+            color: AppColorToken.white.value.withAlpha(30),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: AppColorToken.white.value.withOpacity(0.3),
+            color: AppColorToken.white.value.withAlpha(30),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -185,7 +185,7 @@ class OTPDigitField extends StatelessWidget {
           ),
         ),
         filled: true,
-        fillColor: AppColorToken.black.value.withOpacity(0.3),
+        fillColor: AppColorToken.black.value.withAlpha(30),
       ),
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,

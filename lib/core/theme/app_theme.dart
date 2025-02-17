@@ -10,7 +10,6 @@ class AppTheme {
           primary: AppColorToken.primary.color,
           secondary: AppColorToken.secondary.color,
           error: AppColorToken.error.color,
-          background: AppColorToken.background.color,
           surface: AppColorToken.surface.color,
         ),
       );

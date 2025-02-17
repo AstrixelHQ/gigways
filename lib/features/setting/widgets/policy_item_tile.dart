@@ -22,10 +22,10 @@ class PolicyItemTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColorToken.black.value.withOpacity(0.5),
+          color: AppColorToken.black.value.withAlpha(50),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColorToken.golden.value.withOpacity(0.3),
+            color: AppColorToken.golden.value.withAlpha(30),
           ),
         ),
         child: Row(
@@ -33,7 +33,7 @@ class PolicyItemTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColorToken.golden.value.withOpacity(0.1),
+                color: AppColorToken.golden.value.withAlpha(10),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -58,14 +58,14 @@ class PolicyItemTile extends StatelessWidget {
                     policy.description,
                     style: AppTextStyle.size(14)
                         .regular
-                        .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                        .withColor(AppColorToken.white..color.withAlpha(70)),
                   ),
                   8.verticalSpace,
                   Text(
                     'Last updated: ${DateFormat('MMM d, y').format(policy.lastUpdated)}',
                     style: AppTextStyle.size(12)
                         .regular
-                        .withColor(AppColorToken.white..color.withOpacity(0.5)),
+                        .withColor(AppColorToken.white..color.withAlpha(50)),
                   ),
                 ],
               ),

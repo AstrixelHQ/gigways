@@ -76,7 +76,7 @@ class PolicyDetailPage extends StatelessWidget {
                         Text(
                           section.content,
                           style: AppTextStyle.size(14).regular.withColor(
-                              AppColorToken.white..color.withOpacity(0.7)),
+                              AppColorToken.white..color.withAlpha(70)),
                         ),
                         24.verticalSpace,
                       ],

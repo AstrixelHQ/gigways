@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
-import 'package:gigways/core/theme/app_text_styles.dart';
 import 'package:gigways/core/theme/themes.dart';
 
 class AppTextField extends StatelessWidget {
@@ -47,7 +46,7 @@ class AppTextField extends StatelessWidget {
             hintText: hintText,
             hintStyle: AppTextStyle.size(16)
                 .regular
-                .withColor(AppColorToken.white..color.withOpacity(0.5)),
+                .withColor(AppColorToken.white..color.withAlpha(50)),
             prefixIcon: Icon(
               prefixIcon,
               color: AppColorToken.golden.value,
@@ -56,13 +55,13 @@ class AppTextField extends StatelessWidget {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColorToken.white.value.withOpacity(0.3),
+                color: AppColorToken.white.value.withAlpha(30),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColorToken.white.value.withOpacity(0.3),
+                color: AppColorToken.white.value.withAlpha(30),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -72,7 +71,7 @@ class AppTextField extends StatelessWidget {
               ),
             ),
             filled: true,
-            fillColor: AppColorToken.black.value.withOpacity(0.3),
+            fillColor: AppColorToken.black.value.withAlpha(30),
           ),
         ),
       ],

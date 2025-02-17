@@ -5,7 +5,6 @@ import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/app_text_field.dart';
-import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
@@ -205,10 +204,10 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
                       8.verticalSpace,
                       Container(
                         decoration: BoxDecoration(
-                          color: AppColorToken.black.value.withOpacity(0.3),
+                          color: AppColorToken.black.value.withAlpha(30),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColorToken.white.value.withOpacity(0.3),
+                            color: AppColorToken.white.value.withAlpha(30),
                           ),
                         ),
                         child: DropdownButtonHideUnderline(
@@ -217,7 +216,7 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
                             hint: Text(
                               'Select your state',
                               style: AppTextStyle.size(16).regular.withColor(
-                                  AppColorToken.white..color.withOpacity(0.5)),
+                                  AppColorToken.white..color.withAlpha(50)),
                             ),
                             items: StateConstant.usStates.map((String state) {
                               return DropdownMenuItem<String>(

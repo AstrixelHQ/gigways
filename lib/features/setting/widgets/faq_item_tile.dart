@@ -21,10 +21,10 @@ class _FaqItemTileState extends State<FaqItemTile> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColorToken.black.value.withOpacity(0.5),
+        color: AppColorToken.black.value.withAlpha(50),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColorToken.golden.value.withOpacity(0.3),
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
       ),
       child: Theme(
@@ -66,7 +66,7 @@ class _FaqItemTileState extends State<FaqItemTile> {
                 widget.faq.answer,
                 style: AppTextStyle.size(14)
                     .regular
-                    .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                    .withColor(AppColorToken.white..color.withAlpha(70)),
               ),
             ),
           ],

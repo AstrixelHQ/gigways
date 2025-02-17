@@ -116,10 +116,10 @@ class _NotificationItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColorToken.black.value.withOpacity(0.5),
+        color: AppColorToken.black.value.withAlpha(50),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColorToken.golden.value.withOpacity(0.3),
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
       ),
       child: Row(
@@ -156,14 +156,14 @@ class _NotificationItem extends StatelessWidget {
                   notification.message,
                   style: AppTextStyle.size(14)
                       .regular
-                      .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
                 ),
                 8.verticalSpace,
                 Text(
                   _formatTime(notification.time),
                   style: AppTextStyle.size(12)
                       .regular
-                      .withColor(AppColorToken.white..color.withOpacity(0.5)),
+                      .withColor(AppColorToken.white..color.withAlpha(50)),
                 ),
               ],
             ),
@@ -195,7 +195,7 @@ class _NotificationItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(

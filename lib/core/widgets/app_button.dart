@@ -54,7 +54,7 @@ class AppButton extends StatelessWidget {
                   ? ShapeDecoration(
                       shape: const CircleBorder(),
                       color: (backgroundColor ?? const Color(0xFF2A2A2A))
-                          .withOpacity(0.8),
+                          .withAlpha(80),
                     )
                   : BoxDecoration(
                       color: backgroundColor ?? const Color(0xFF2A2A2A),
@@ -72,8 +72,8 @@ class AppButton extends StatelessWidget {
                           FocusScope.of(context).unfocus();
                           onPressed();
                         },
-                  splashColor: AppColorToken.white.value.withOpacity(0.1),
-                  highlightColor: AppColorToken.white.value.withOpacity(0.05),
+                  splashColor: AppColorToken.white.value.withAlpha(10),
+                  highlightColor: AppColorToken.white.value.withAlpha(5),
                   child: Center(
                     child: loading
                         ? SizedBox(

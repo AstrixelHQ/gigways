@@ -56,10 +56,10 @@ class _FaqPageState extends ConsumerState<FaqPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColorToken.black.value.withOpacity(0.3),
+                  color: AppColorToken.black.value.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColorToken.golden.value.withOpacity(0.3),
+                    color: AppColorToken.golden.value.withAlpha(30),
                   ),
                 ),
                 child: TextField(
@@ -70,7 +70,7 @@ class _FaqPageState extends ConsumerState<FaqPage> {
                     hintText: 'Search FAQ',
                     hintStyle: AppTextStyle.size(16)
                         .regular
-                        .withColor(AppColorToken.white..color.withOpacity(0.5)),
+                        .withColor(AppColorToken.white..color.withAlpha(50)),
                     prefixIcon: Icon(
                       Icons.search,
                       color: AppColorToken.golden.value,

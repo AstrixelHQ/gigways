@@ -41,7 +41,7 @@ class LoginPage extends ConsumerWidget {
                   'Sign in to continue your journey',
                   style: AppTextStyle.size(16)
                       .regular
-                      .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
                 ),
                 48.verticalSpace,
 
@@ -93,8 +93,9 @@ class LoginPage extends ConsumerWidget {
                     24.horizontalSpace,
                     Text(
                       'Or continue with',
-                      style: AppTextStyle.size(14).regular.withColor(
-                          AppColorToken.white..color.withOpacity(0.7)),
+                      style: AppTextStyle.size(14)
+                          .regular
+                          .withColor(AppColorToken.white..color.withAlpha(70)),
                     ),
                     24.horizontalSpace,
                     const Expanded(

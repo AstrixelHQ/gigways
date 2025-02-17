@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:gigways/core/assets/assets.gen.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
@@ -42,7 +41,7 @@ class SignupPage extends ConsumerWidget {
                   'Please fill in the details to get started',
                   style: AppTextStyle.size(16)
                       .regular
-                      .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
                 ),
                 40.verticalSpace,
 
@@ -90,7 +89,7 @@ class SignupPage extends ConsumerWidget {
                           // Handle checkbox
                         },
                         side: BorderSide(
-                          color: AppColorToken.white.color.withOpacity(0.7),
+                          color: AppColorToken.white.color.withAlpha(70),
                         ),
                       ),
                     ),

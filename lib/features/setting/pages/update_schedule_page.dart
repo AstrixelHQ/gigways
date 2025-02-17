@@ -86,10 +86,10 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withOpacity(0.5),
+                    color: AppColorToken.black.value.withAlpha(50),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Column(
@@ -126,10 +126,10 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withOpacity(0.5),
+                    color: AppColorToken.black.value.withAlpha(50),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Column(
@@ -168,10 +168,10 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withOpacity(0.5),
+                    color: AppColorToken.black.value.withAlpha(50),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Column(
@@ -344,7 +344,7 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Text(

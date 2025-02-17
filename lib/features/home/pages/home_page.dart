@@ -32,7 +32,7 @@ class HomePage extends ConsumerWidget {
                         Text(
                           'Welcome Back!',
                           style: AppTextStyle.size(14).regular.withColor(
-                              AppColorToken.white..color.withOpacity(0.7)),
+                              AppColorToken.white..color.withAlpha(70)),
                         ),
                         4.verticalSpace,
                         Text(
@@ -70,10 +70,10 @@ class HomePage extends ConsumerWidget {
                 // Today's Insight Card
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withOpacity(0.5),
+                    color: AppColorToken.black.value.withAlpha(50),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Column(
@@ -127,7 +127,7 @@ class HomePage extends ConsumerWidget {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColorToken.golden.value.withOpacity(0.1),
+                            color: AppColorToken.golden.value.withAlpha(10),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -233,7 +233,7 @@ class HomePage extends ConsumerWidget {
                             Text(
                               'Always stay alert for rest and driving notifications',
                               style: AppTextStyle.size(14).regular.withColor(
-                                  AppColorToken.white..color.withOpacity(0.7)),
+                                  AppColorToken.white..color.withAlpha(70)),
                             ),
                           ],
                         ),
@@ -254,10 +254,10 @@ class HomePage extends ConsumerWidget {
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withOpacity(0.5),
+                    color: AppColorToken.black.value.withAlpha(50),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColorToken.golden.value.withOpacity(0.3),
+                      color: AppColorToken.golden.value.withAlpha(30),
                     ),
                   ),
                   child: Center(
@@ -306,7 +306,7 @@ class HomePage extends ConsumerWidget {
         color: AppColorToken.black.value,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColorToken.golden.value.withOpacity(0.3),
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
       ),
       child: Column(
@@ -315,7 +315,7 @@ class HomePage extends ConsumerWidget {
             label,
             style: AppTextStyle.size(12)
                 .regular
-                .withColor(AppColorToken.white..color.withOpacity(0.7)),
+                .withColor(AppColorToken.white..color.withAlpha(70)),
           ),
           4.verticalSpace,
           Text(
@@ -337,7 +337,7 @@ class HomePage extends ConsumerWidget {
         color: AppColorToken.black.value,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColorToken.golden.value.withOpacity(0.3),
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
       ),
       child: Row(

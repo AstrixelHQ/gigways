@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
-import 'package:gigways/core/theme/app_colors.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/routers/app_router.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({
@@ -79,6 +80,7 @@ class _SplashScreenState extends ConsumerState<SplashPage>
     await Future.delayed(const Duration(milliseconds: 200));
     await _controller.forward();
     await Future.delayed(const Duration(seconds: 1));
+    OnboardingRoute().pushReplacement(context);
   }
 
   @override
@@ -89,112 +91,99 @@ class _SplashScreenState extends ConsumerState<SplashPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColorToken.black.value,
-              AppColorToken.lightDark.value,
-            ],
-          ),
-        ),
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                ...List.generate(
-                  20,
-                  (index) => Positioned(
-                    left: (MediaQuery.of(context).size.width * (index / 20)) *
-                        _opacityAnimation.value,
-                    top:
-                        (MediaQuery.of(context).size.height * (index % 5 / 5)) *
-                            _opacityAnimation.value,
-                    child: Opacity(
-                      opacity: 0.1 * _opacityAnimation.value,
-                      child: Transform.rotate(
-                        angle:
-                            _rotateAnimation.value * (index % 2 == 0 ? 1 : -1),
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: AppColorToken.surface.value,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+    return ScaffoldWrapper(
+      shouldShowGradient: true,
+      body: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ...List.generate(
+                20,
+                (index) => Positioned(
+                  left: (MediaQuery.of(context).size.width * (index / 20)) *
+                      _opacityAnimation.value,
+                  top: (MediaQuery.of(context).size.height * (index % 5 / 5)) *
+                      _opacityAnimation.value,
+                  child: Opacity(
+                    opacity: 0.1 * _opacityAnimation.value,
+                    child: Transform.rotate(
+                      angle: _rotateAnimation.value * (index % 2 == 0 ? 1 : -1),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: AppColorToken.surface.value,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
                   ),
                 ),
-                // Main content
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Transform.scale(
-                        scale: _scaleAnimation.value,
-                        child: Transform.rotate(
-                          angle: _rotateAnimation.value,
-                          child: Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: AppColorToken.surface.value,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColorToken.textPrimary.value
-                                      .withAlpha(20),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.rocket_launch,
-                              size: 60,
-                              color: AppColorToken.primary.value,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      Transform.translate(
-                        offset: Offset(0, _slideAnimation.value),
-                        child: Opacity(
-                          opacity: _opacityAnimation.value,
-                          child: Column(
-                            children: [
-                              Text(
-                                AppConstant.appName,
-                                style: AppTextStyle.size(28)
-                                    .semiBold
-                                    .withColor(AppColorToken.surface),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your next job is just a tap away',
-                                style: AppTextStyle.size(16)
-                                    .regular
-                                    .withColor(AppColorToken.surface),
+              ),
+              // Main content
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Transform.scale(
+                      scale: _scaleAnimation.value,
+                      child: Transform.rotate(
+                        angle: _rotateAnimation.value,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: AppColorToken.surface.value,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColorToken.textPrimary.value
+                                    .withAlpha(20),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
                               ),
                             ],
                           ),
+                          child: Icon(
+                            Icons.rocket_launch,
+                            size: 60,
+                            color: AppColorToken.primary.value,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 40),
+                    Transform.translate(
+                      offset: Offset(0, _slideAnimation.value),
+                      child: Opacity(
+                        opacity: _opacityAnimation.value,
+                        child: Column(
+                          children: [
+                            Text(
+                              AppConstant.appName,
+                              style: AppTextStyle.size(28)
+                                  .semiBold
+                                  .withColor(AppColorToken.surface),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Your next job is just a tap away',
+                              style: AppTextStyle.size(16)
+                                  .regular
+                                  .withColor(AppColorToken.surface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,0 +1,1 @@
+export 'strike_page.dart';

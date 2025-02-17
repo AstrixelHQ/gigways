@@ -3,6 +3,7 @@ import 'dart:ui';
 enum AppColorToken {
   primary(Color(0xFF2196F3)),
   secondary(Color(0xFF03DAC6)),
+  orange(Color(0xFFFB8C00)),
   error(Color(0xFFB00020)),
   success(Color(0xFF4CAF50)),
   warning(Color(0xFFFFC107)),
@@ -14,8 +15,11 @@ enum AppColorToken {
   surface(Color(0xFFFFFBFE)),
   black(Color(0xFF000000)),
   lightDark(Color(0xFF1A1A1A)),
-  surfaceVariant(Color(0xFFE7E0EC));
+  surfaceVariant(Color(0xFFE7E0EC)),
 
+  white(Color(0xFFFFFFFF)),
+  darkGrey(Color(0xFF1A1A1A)),
+  golden(Color(0xFFC7B299));
 
   final Color color;
   const AppColorToken(this.color);

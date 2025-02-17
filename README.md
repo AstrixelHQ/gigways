@@ -5,7 +5,7 @@ Android and iOS application for gig economy drivers to collectively manage their
 
 ## Project Overview
 
-GigWays is an open-source Flutter application that helps gig drivers (ride-sharing, delivery, etc.) to coordinate their schedules and organize collective breaks. The app enables drivers to view and join scheduled breaks, helping them make informed decisions about their work hours.
+GigWays is an open-source application that helps gig drivers (ride-sharing, delivery, etc.) to coordinate their schedules and organize collective breaks. The app enables drivers to view and join scheduled breaks, helping them make informed decisions about their work hours.
 
 ## Setup Guide 🛠️
 

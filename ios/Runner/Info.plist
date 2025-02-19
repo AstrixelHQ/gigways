@@ -45,5 +45,23 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location Permission is required for determining your status of the ride.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Location Permission is required for determining your status of the ride.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location Permission is required for determining your status of the ride.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Location Permission is required for determining your status of the ride.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>location</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

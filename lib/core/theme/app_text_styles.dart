@@ -24,6 +24,13 @@ extension TextStyleColorExtension on TextStyle {
   TextStyle withColor(AppColorToken token) => copyWith(color: token.color);
 }
 
+// flutter color parser to enum
+extension ColorParser on Color {
+  AppColorToken toToken() {
+    return AppColorToken.values.firstWhere((e) => e.color == this);
+  }
+}
+
 // Dynamic color builder
 class TextStyleBuilder {
   final TextStyle _style;

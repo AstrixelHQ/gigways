@@ -26,6 +26,10 @@ class DashboardPage extends StatelessWidget {
             label: 'Home',
           ),
           NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            label: 'Community',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.settings),
             label: 'Setting',
           ),

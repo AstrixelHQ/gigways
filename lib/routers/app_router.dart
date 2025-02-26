@@ -1,12 +1,14 @@
 import 'package:flutter/src/widgets/framework.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/features/auth/pages/pages.dart';
+import 'package:gigways/features/community/models/post_model.dart';
 import 'package:gigways/features/dashboard/pages/pages.dart';
 import 'package:gigways/features/home/pages/pages.dart';
 import 'package:gigways/features/onboarding/pages/pages.dart';
 import 'package:gigways/features/setting/models/policy_model.dart';
 import 'package:gigways/features/setting/pages/pages.dart';
 import 'package:gigways/features/strike/pages/pages.dart';
+import 'package:gigways/features/community/pages/pages.dart';
 import 'package:go_router/go_router.dart';
 
 part 'app_router.g.dart';
@@ -81,6 +83,11 @@ class VerifyEmailRoute extends GoRouteData {
   ),
   TypedStatefulShellBranch(
     routes: [
+      TypedGoRoute<CommunityRoute>(path: CommunityPage.path),
+    ],
+  ),
+  TypedStatefulShellBranch(
+    routes: [
       TypedGoRoute<SettingsRoute>(path: SettingsPage.path),
     ],
   ),
@@ -104,6 +111,13 @@ class StrikeRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return const StrikePage();
+  }
+}
+
+class CommunityRoute extends GoRouteData {
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const CommunityPage();
   }
 }
 
@@ -163,5 +177,17 @@ class PolicyDetailRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return PolicyDetailPage(policy: $extra);
+  }
+}
+
+@TypedGoRoute<CommentRoute>(path: CommentsPage.path)
+class CommentRoute extends GoRouteData {
+  final PostModel $extra;
+
+  CommentRoute({required this.$extra});
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return CommentsPage(post: $extra);
   }
 }

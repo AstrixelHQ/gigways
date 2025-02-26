@@ -384,9 +384,13 @@ class _StrikePageState extends ConsumerState<StrikePage> {
             style:
                 AppTextStyle.size(16).regular.withColor(AppColorToken.golden),
           ),
-          Text(
-            ' $date',
-            style: AppTextStyle.size(16).regular.withColor(AppColorToken.white),
+          1.horizontalSpace,
+          Expanded(
+            child: Text(
+              ' $date',
+              style:
+                  AppTextStyle.size(16).regular.withColor(AppColorToken.white),
+            ),
           ),
         ],
       ),

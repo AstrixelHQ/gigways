@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -53,7 +55,7 @@ class AuthNotifier extends _$AuthNotifier {
 
   // Add a stream controller to expose state changes as a stream
   final _controller = StreamController<AuthData>.broadcast();
-  Stream<AuthData> get stream => _controller.stream;
+  Stream<AuthData> get _stream => _controller.stream;
 
   @override
   AuthData build() {
@@ -66,9 +68,9 @@ class AuthNotifier extends _$AuthNotifier {
       _loadUserData(currentUser);
     }
 
-    ref.onDispose(() {
-      _controller.close();
-    });
+    // ref.onDispose(() {
+    //   _controller.close();
+    // });
 
     return AuthData(
       state:
@@ -79,18 +81,21 @@ class AuthNotifier extends _$AuthNotifier {
 
   // Listen to auth state changes
   void listenToAuthChanges() {
-    _auth.userChanges().listen((User? user) {
-      if (user == null) {
-        state = AuthData(state: AuthState.unauthenticated);
-        _controller.add(state);
-      } else {
-        _loadUserData(user);
-      }
+    _auth.userChanges().listen((User? user) async {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (user == null) {
+          state = state.copyWith(state: AuthState.unauthenticated);
+          _controller.add(state);
+        } else {
+          _loadUserData(user);
+        }
+      });
     });
   }
 
   // Load user data from Firestore
   Future<void> _loadUserData(User user) async {
+    await SchedulerBinding.instance.endOfFrame;
     state = state.copyWith(state: AuthState.loading, user: user);
     _controller.add(state);
 

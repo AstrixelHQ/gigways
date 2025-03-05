@@ -32,6 +32,11 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loadingWidth = double.infinity;
+
+    final buttonWidth =
+        loading ? loadingWidth : (isSmallButton ? height : width);
+
     return Opacity(
       opacity: isDisabled ? 0.6 : 1,
       child: Bouncy(
@@ -47,9 +52,20 @@ class AppButton extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 400),
               height: height,
-              width: loading
-                  ? height // Makes it square for circle shape
-                  : (isSmallButton ? height : width),
+              width: buttonWidth,
+              // constraints: isSmallButton
+              //     ? BoxConstraints(
+              //         minHeight: height,
+              //         maxHeight: height,
+              //         minWidth: height,
+              //         maxWidth: height,
+              //       )
+              //     : BoxConstraints(
+              //         minHeight: height,
+              //         maxHeight: height,
+              //         minWidth: buttonWidth,
+              //         maxWidth: buttonWidth,
+              //       ),
               decoration: loading
                   ? ShapeDecoration(
                       shape: const CircleBorder(),
@@ -86,25 +102,29 @@ class AppButton extends StatelessWidget {
                               ),
                             ),
                           )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (leading != null) ...[
-                                leading!,
-                                const SizedBox(width: 8),
+                        : SizedBox(
+                            width: buttonWidth,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (leading != null) ...[
+                                  leading!,
+                                  const SizedBox(width: 8),
+                                ],
+                                if (text != null)
+                                  Text(
+                                    text!,
+                                    style: AppTextStyle.size(18)
+                                        .medium
+                                        .withColor(textColor != null
+                                            ? AppColorToken.fromName(
+                                                        textColor.toString())
+                                                    as AppColorToken? ??
+                                                AppColorToken.white
+                                            : AppColorToken.white),
+                                  ),
                               ],
-                              if (text != null)
-                                Text(
-                                  text!,
-                                  style: AppTextStyle.size(18).medium.withColor(
-                                      textColor != null
-                                          ? AppColorToken.fromName(
-                                                      textColor.toString())
-                                                  as AppColorToken? ??
-                                              AppColorToken.white
-                                          : AppColorToken.white),
-                                ),
-                            ],
+                            ),
                           ),
                   ),
                 ),

@@ -20,15 +20,12 @@ class OnboardingPage extends ConsumerStatefulWidget {
 }
 
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
-  bool _isLoading = false;
-
   @override
-  void initState() {
-    super.initState();
-    // Start listening to auth changes
+  void didChangeDependencies() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authNotifierProvider.notifier).listenToAuthChanges();
     });
+    super.didChangeDependencies();
   }
 
   @override
@@ -52,8 +49,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       }
     });
 
+    final _isLoading =
+        ref.watch(authNotifierProvider).state == AuthState.loading;
+
     return LoadingOverlay(
-      isLoading: !_isLoading,
+      isLoading: _isLoading,
       child: ScaffoldWrapper(
         shouldShowGradient: true,
         body: SafeArea(
@@ -138,7 +138,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         context: context,
                         icon: Assets.svg.google.path,
                         text: 'Google',
-                        onPressed: _isLoading ? null : _handleGoogleSignIn,
+                        onPressed: ref
+                            .read(authNotifierProvider.notifier)
+                            .signInWithGoogle,
                       ),
                     ),
                     16.horizontalSpace,
@@ -149,7 +151,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         context: context,
                         icon: Assets.svg.facebook.path,
                         text: 'Facebook',
-                        onPressed: _isLoading ? null : _handleFacebookSignIn,
+                        onPressed: ref
+                            .read(authNotifierProvider.notifier)
+                            .signInWithFacebook,
                         iconColor: AppColorToken.white.value,
                       ),
                     ),
@@ -163,7 +167,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   icon: Assets.svg.apple.path,
                   text: 'Apple',
                   isWide: true,
-                  onPressed: _isLoading ? null : _handleAppleSignIn,
+                  onPressed:
+                      ref.read(authNotifierProvider.notifier).signInWithApple,
                 ),
                 16.verticalSpace,
 
@@ -198,48 +203,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         },
       ),
     );
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithGoogle();
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _handleFacebookSignIn() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithFacebook();
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _handleAppleSignIn() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithApple();
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   Widget _buildSocialButton({

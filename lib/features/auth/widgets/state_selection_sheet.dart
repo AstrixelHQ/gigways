@@ -26,7 +26,7 @@ class _StateSelectionSheetState extends ConsumerState<StateSelectionSheet> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async => false, // Prevent closing with back button
+      onWillPop: () async => false,
       child: Container(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,

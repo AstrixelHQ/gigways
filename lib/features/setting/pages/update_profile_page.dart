@@ -87,7 +87,7 @@ class UpdateProfilePage extends HookConsumerWidget {
     // Function to handle form submission
     Future<void> handleSubmit() async {
       if (formKey.currentState?.validate() ?? false) {
-        await ref.read(profileNotifierProvider.notifier).updateProfile(
+        ref.read(profileNotifierProvider.notifier).updateProfile(
               fullName: nameController.text,
               email: emailController.text,
               phoneNumber:

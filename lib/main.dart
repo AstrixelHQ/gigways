@@ -1,10 +1,11 @@
 import 'dart:async';
-
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/services/notification_service.dart';
 import 'package:gigways/core/utils/ui_utils.dart';
+import 'package:gigways/firebase_options.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,6 +15,12 @@ Future<void> main() async {
 
 FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   await NotificationService().initialize();
   runApp(
     ProviderScope(

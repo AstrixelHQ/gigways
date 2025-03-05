@@ -5,15 +5,52 @@ import 'package:gigways/core/assets/assets.gen.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
+import 'package:gigways/features/auth/widgets/state_selection_sheet.dart';
 import 'package:gigways/routers/app_router.dart';
 
-class OnboardingPage extends ConsumerWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
   static const String path = '/onboarding';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start listening to auth changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authNotifierProvider.notifier).listenToAuthChanges();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen to auth state changes
+    ref.listen(authNotifierProvider, (previous, current) {
+      if (current.state == AuthState.needsState) {
+        // Show state selection sheet
+        _showStateSelectionSheet();
+      } else if (current.state == AuthState.authenticated) {
+        // Navigate to home page
+        HomeRoute().go(context);
+      } else if (current.state == AuthState.error) {
+        // Show error snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${current.errorMessage}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
+
     return ScaffoldWrapper(
       shouldShowGradient: true,
       body: SafeArea(
@@ -93,28 +130,27 @@ class OnboardingPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Google button
-                  _buildSocialButton(
-                    context: context,
-                    icon: Assets.svg.google.path,
-                    text: 'Google',
-                    onPressed: () {
-                      // Handle Google sign in
-                      HomeRoute().go(context);
-                    },
+                  Expanded(
+                    child: _buildSocialButton(
+                      context: context,
+                      icon: Assets.svg.google.path,
+                      text: 'Google',
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _handleGoogleSignIn,
+                    ),
                   ),
                   16.horizontalSpace,
 
                   // Facebook button
-                  _buildSocialButton(
-                    context: context,
-                    icon:
-                        'assets/svg/facebook.svg', // You'll need to add this asset
-                    text: 'Facebook',
-                    onPressed: () {
-                      // Handle Facebook sign in
-                      HomeRoute().go(context);
-                    },
-                    iconColor: Colors.blue,
+                  Expanded(
+                    child: _buildSocialButton(
+                      context: context,
+                      icon: Assets.svg.facebook.path,
+                      text: 'Facebook',
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _handleFacebookSignIn,
+                      iconColor: AppColorToken.white.value,
+                    ),
                   ),
                 ],
               ),
@@ -126,10 +162,8 @@ class OnboardingPage extends ConsumerWidget {
                 icon: Assets.svg.apple.path,
                 text: 'Apple',
                 isWide: true,
-                onPressed: () {
-                  // Handle Apple sign in
-                  HomeRoute().go(context);
-                },
+                isLoading: _isLoading,
+                onPressed: _isLoading ? null : _handleAppleSignIn,
               ),
               16.verticalSpace,
 
@@ -149,12 +183,71 @@ class OnboardingPage extends ConsumerWidget {
     );
   }
 
+  void _showStateSelectionSheet() {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StateSelectionSheet(
+        onCompleted: () {
+          Navigator.pop(context);
+          HomeRoute().go(context);
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleFacebookSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await ref.read(authNotifierProvider.notifier).signInWithFacebook();
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await ref.read(authNotifierProvider.notifier).signInWithApple();
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Widget _buildSocialButton({
     required BuildContext context,
     required String icon,
     required String text,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     bool isWide = false,
+    bool isLoading = false,
     Color? iconColor,
   }) {
     return GestureDetector(
@@ -173,14 +266,19 @@ class OnboardingPage extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Check if the icon path exists in the assets
-            icon == Assets.svg.google.path || icon == Assets.svg.apple.path
-                ? SvgIcon(path: icon, color: iconColor)
-                : Icon(
-                    Icons.facebook,
-                    color: iconColor ?? AppColorToken.white.value,
-                    size: 24,
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColorToken.white.value,
                   ),
+                ),
+              )
+            else
+              SvgIcon(path: icon, color: iconColor),
             12.horizontalSpace,
             Text(
               text,
@@ -209,19 +307,12 @@ class SvgIcon extends StatelessWidget {
     return SizedBox(
       width: 24,
       height: 24,
-      child: path.contains('.svg')
-          ? SvgPicture.asset(
-              path,
-              colorFilter: color != null
-                  ? ColorFilter.mode(color!, BlendMode.srcIn)
-                  : ColorFilter.mode(
-                      AppColorToken.white.value, BlendMode.srcIn),
-            )
-          : Icon(
-              Icons.error,
-              color: AppColorToken.white.value,
-              size: 24,
-            ),
+      child: SvgPicture.asset(
+        path,
+        colorFilter: color != null
+            ? ColorFilter.mode(color!, BlendMode.srcIn)
+            : ColorFilter.mode(AppColorToken.white.value, BlendMode.srcIn),
+      ),
     );
   }
 }

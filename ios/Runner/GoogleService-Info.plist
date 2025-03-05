@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBO2mE0AuGxsTRruoEQf0cZq7dUh2Cjv9g</string>
+	<key>GCM_SENDER_ID</key>
+	<string>594284866867</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>app.gigways.gigways</string>
+	<key>PROJECT_ID</key>
+	<string>gigwayhero</string>
+	<key>STORAGE_BUCKET</key>
+	<string>gigwayhero.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:594284866867:ios:6dcd2d633eff3fd8f02246</string>
+</dict>
+</plist>

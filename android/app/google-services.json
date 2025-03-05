@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "594284866867",
+    "project_id": "gigwayhero",
+    "storage_bucket": "gigwayhero.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:594284866867:android:10f73aa60e86e62cf02246",
+        "android_client_info": {
+          "package_name": "app.gigways.gigways"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "594284866867-6g3h11o1rr0qetn3lueg9vfqn5hl2rpt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzUUwk7jiyu9q_SLACFTvsrj8KoeBkDrA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "594284866867-6g3h11o1rr0qetn3lueg9vfqn5hl2rpt.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

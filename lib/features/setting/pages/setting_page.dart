@@ -67,7 +67,7 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   child: Center(
                     child: Text(
-                      'GW',
+                      'AB',
                       style: AppTextStyle.size(36)
                           .bold
                           .withColor(AppColorToken.black),
@@ -78,7 +78,7 @@ class SettingsPage extends ConsumerWidget {
               16.verticalSpace,
               Center(
                 child: Text(
-                  'Gig Ways',
+                  'Aayush Bhattarai',
                   style:
                       AppTextStyle.size(24).bold.withColor(AppColorToken.white),
                 ),

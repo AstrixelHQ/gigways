@@ -33,6 +33,12 @@ dependencies:
   google_sign_in: ^6.2.2
   sign_in_with_apple: ^6.1.4
   flutter_facebook_auth: ^6.0.4
+  flutter_hooks: ^0.20.3
+  hooks_riverpod: ^2.5.1
+  flutter_cache_manager: ^3.3.1
+  path_provider: ^2.1.1
+  cached_network_image: ^3.3.0
+  image_picker: ^0.8.9
 
 dev_dependencies:
   flutter_test:

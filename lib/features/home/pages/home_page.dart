@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
+import 'package:gigways/routers/app_router.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -54,6 +57,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final userData = ref.watch(authNotifierProvider).userData;
     return ScaffoldWrapper(
       shouldShowGradient: true,
       body: SafeArea(
@@ -79,7 +83,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ),
                         4.verticalSpace,
                         Text(
-                          'John Doe',
+                          userData?.fullName ?? 'User',
                           style: AppTextStyle.size(24)
                               .bold
                               .withColor(AppColorToken.white),
@@ -87,23 +91,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ],
                     ),
                     GestureDetector(
-                      onTap: () {
-                        // Navigate to profile
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColorToken.golden.value,
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.person_outline,
-                          color: AppColorToken.golden.value,
-                        ),
+                      onTap: () => UpdateProfileRoute().push(context),
+                      child: GradientAvatar(
+                        name: userData?.fullName ?? 'User',
+                        imageUrl: userData?.profileImageUrl,
+                        size: 48,
                       ),
                     ),
                   ],

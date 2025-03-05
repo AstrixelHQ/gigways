@@ -353,4 +353,12 @@ class AuthNotifier extends _$AuthNotifier {
       _controller.add(state);
     }
   }
+
+  // Update user data in state
+  void updateUserData(UserModel userData) {
+    state = state.copyWith(
+      userData: userData,
+    );
+    _controller.add(state);
+  }
 }

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
+import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -13,6 +15,8 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final userData = ref.watch(authNotifierProvider).userData;
+
     return ScaffoldWrapper(
       shouldShowGradient: true,
       body: Padding(
@@ -37,24 +41,19 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   GestureDetector(
                     onTap: () {
-                      // Navigate to profile
+                      // Navigate to profile update page
+                      UpdateProfileRoute().push(context);
                     },
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColorToken.golden.value,
-                          width: 2,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.person_outline,
-                        color: AppColorToken.golden.value,
-                      ),
+                    child: GradientAvatar(
+                      name: userData?.fullName ?? 'User',
+                      imageUrl: userData?.profileImageUrl,
+                      size: 48,
+                      isEditable: false,
+                      onEdit: () {
+                        UpdateProfileRoute().push(context);
+                      },
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
@@ -62,29 +61,28 @@ class SettingsPage extends ConsumerWidget {
 
             // App Logo
             Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColorToken.white.value,
-                ),
-                child: Center(
-                  child: Text(
-                    'AB',
-                    style: AppTextStyle.size(36)
-                        .bold
-                        .withColor(AppColorToken.black),
+              child: Column(
+                children: [
+                  GradientAvatar(
+                    name: userData?.fullName ?? 'User',
+                    imageUrl: userData?.profileImageUrl,
+                    size: 60,
                   ),
-                ),
-              ),
-            ),
-            16.verticalSpace,
-            Center(
-              child: Text(
-                'Aayush Bhattarai',
-                style:
-                    AppTextStyle.size(24).bold.withColor(AppColorToken.white),
+                  16.verticalSpace,
+                  Text(
+                    userData?.fullName ?? 'User',
+                    style: AppTextStyle.size(18)
+                        .bold
+                        .withColor(AppColorToken.white),
+                  ),
+                  4.verticalSpace,
+                  Text(
+                    userData?.email ?? 'email@example.com',
+                    style: AppTextStyle.size(10)
+                        .regular
+                        .withColor(AppColorToken.white..color.withAlpha(70)),
+                  ),
+                ],
               ),
             ),
             40.verticalSpace,

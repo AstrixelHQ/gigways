@@ -12,6 +12,7 @@ class AppTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final Widget? suffixIcon;
   final List<TextInputFormatter> inputFormatters;
+  final TextEditingController controller;
 
   const AppTextField({
     super.key,
@@ -23,6 +24,7 @@ class AppTextField extends StatelessWidget {
     this.validator,
     this.suffixIcon,
     this.inputFormatters = const [],
+    required this.controller,
   });
 
   @override
@@ -36,6 +38,7 @@ class AppTextField extends StatelessWidget {
         ),
         8.verticalSpace,
         TextFormField(
+          controller: controller,
           validator: validator,
           inputFormatters: inputFormatters,
           obscureText: isPassword,

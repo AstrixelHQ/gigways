@@ -93,30 +93,6 @@ class OnboardingRoute extends GoRouteData {
   }
 }
 
-@TypedGoRoute<SignupRoute>(path: SignupPage.path)
-class SignupRoute extends GoRouteData {
-  @override
-  Widget build(BuildContext context, GoRouterState state) {
-    return const SignupPage();
-  }
-}
-
-@TypedGoRoute<LoginRoute>(path: LoginPage.path)
-class LoginRoute extends GoRouteData {
-  @override
-  Widget build(BuildContext context, GoRouterState state) {
-    return const LoginPage();
-  }
-}
-
-@TypedGoRoute<ForgotPasswordRoute>(path: ForgotPasswordPage.path)
-class ForgotPasswordRoute extends GoRouteData {
-  @override
-  Widget build(BuildContext context, GoRouterState state) {
-    return const ForgotPasswordPage();
-  }
-}
-
 @TypedGoRoute<VerifyEmailRoute>(path: VerifyEmailPage.path)
 class VerifyEmailRoute extends GoRouteData {
   @override

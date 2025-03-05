@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:gigways/core/assets/assets.gen.dart';
+import 'package:lottie/lottie.dart';
 
 class LoadingOverlay extends StatelessWidget {
-  final Widget child;
   final bool isLoading;
-  final String? loadingText;
+  final Widget child;
+  final Color? backgroundColor;
+  final Widget? loadingWidget;
 
   const LoadingOverlay({
-    super.key,
-    required this.child,
+    Key? key,
     required this.isLoading,
-    this.loadingText,
-  });
+    required this.child,
+    this.backgroundColor,
+    this.loadingWidget,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -18,21 +22,11 @@ class LoadingOverlay extends StatelessWidget {
       children: [
         child,
         if (isLoading)
-          Container(
-            color: Colors.black54,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  if (loadingText != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      loadingText!,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ],
+          Positioned.fill(
+            child: Container(
+              color: backgroundColor ?? Colors.grey.withOpacity(0.5),
+              child: Center(
+                child: Assets.lottie.loading.lottie(),
               ),
             ),
           ),

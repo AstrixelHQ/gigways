@@ -4,6 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:gigways/core/assets/assets.gen.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/auth/widgets/state_selection_sheet.dart';
@@ -51,132 +52,132 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       }
     });
 
-    return ScaffoldWrapper(
-      shouldShowGradient: true,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Spacer(flex: 2),
+    return LoadingOverlay(
+      isLoading: !_isLoading,
+      child: ScaffoldWrapper(
+        shouldShowGradient: true,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Spacer(flex: 2),
 
-              // Logo
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColorToken.black.value,
-                  border: Border.all(
-                    color: AppColorToken.golden.value,
-                    width: 2,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    'GW',
-                    style: AppTextStyle.size(40)
-                        .bold
-                        .withColor(AppColorToken.golden),
-                  ),
-                ),
-              ),
-              32.verticalSpace,
-
-              // Welcome Text
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Welcome To\n',
-                      style: AppTextStyle.size(32)
-                          .regular
-                          .withColor(AppColorToken.white),
+                // Logo
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColorToken.black.value,
+                    border: Border.all(
+                      color: AppColorToken.golden.value,
+                      width: 2,
                     ),
-                    TextSpan(
-                      text: 'GigWays ',
-                      style: AppTextStyle.size(32)
+                  ),
+                  child: Center(
+                    child: Text(
+                      'GW',
+                      style: AppTextStyle.size(40)
                           .bold
                           .withColor(AppColorToken.golden),
                     ),
-                    TextSpan(
-                      text: 'Hero',
-                      style: AppTextStyle.size(32)
-                          .regular
-                          .withColor(AppColorToken.white),
+                  ),
+                ),
+                32.verticalSpace,
+
+                // Welcome Text
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Welcome To\n',
+                        style: AppTextStyle.size(32)
+                            .regular
+                            .withColor(AppColorToken.white),
+                      ),
+                      TextSpan(
+                        text: 'GigWays ',
+                        style: AppTextStyle.size(32)
+                            .bold
+                            .withColor(AppColorToken.golden),
+                      ),
+                      TextSpan(
+                        text: 'Hero',
+                        style: AppTextStyle.size(32)
+                            .regular
+                            .withColor(AppColorToken.white),
+                      ),
+                    ],
+                  ),
+                ),
+                24.verticalSpace,
+
+                Text(
+                  'Join our community of gig drivers',
+                  style: AppTextStyle.size(16)
+                      .regular
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
+                  textAlign: TextAlign.center,
+                ),
+
+                const Spacer(flex: 1),
+
+                24.verticalSpace,
+
+                // Google and Facebook buttons in a row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Google button
+                    Expanded(
+                      child: _buildSocialButton(
+                        context: context,
+                        icon: Assets.svg.google.path,
+                        text: 'Google',
+                        onPressed: _isLoading ? null : _handleGoogleSignIn,
+                      ),
+                    ),
+                    16.horizontalSpace,
+
+                    // Facebook button
+                    Expanded(
+                      child: _buildSocialButton(
+                        context: context,
+                        icon: Assets.svg.facebook.path,
+                        text: 'Facebook',
+                        onPressed: _isLoading ? null : _handleFacebookSignIn,
+                        iconColor: AppColorToken.white.value,
+                      ),
                     ),
                   ],
                 ),
-              ),
-              24.verticalSpace,
+                16.verticalSpace,
 
-              Text(
-                'Join our community of gig drivers',
-                style: AppTextStyle.size(16)
-                    .regular
-                    .withColor(AppColorToken.white..color.withAlpha(70)),
-                textAlign: TextAlign.center,
-              ),
+                // Apple button
+                _buildSocialButton(
+                  context: context,
+                  icon: Assets.svg.apple.path,
+                  text: 'Apple',
+                  isWide: true,
+                  onPressed: _isLoading ? null : _handleAppleSignIn,
+                ),
+                16.verticalSpace,
 
-              const Spacer(flex: 1),
-
-              24.verticalSpace,
-
-              // Google and Facebook buttons in a row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Google button
-                  Expanded(
-                    child: _buildSocialButton(
-                      context: context,
-                      icon: Assets.svg.google.path,
-                      text: 'Google',
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : _handleGoogleSignIn,
-                    ),
-                  ),
-                  16.horizontalSpace,
-
-                  // Facebook button
-                  Expanded(
-                    child: _buildSocialButton(
-                      context: context,
-                      icon: Assets.svg.facebook.path,
-                      text: 'Facebook',
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : _handleFacebookSignIn,
-                      iconColor: AppColorToken.white.value,
-                    ),
-                  ),
-                ],
-              ),
-              16.verticalSpace,
-
-              // Apple button
-              _buildSocialButton(
-                context: context,
-                icon: Assets.svg.apple.path,
-                text: 'Apple',
-                isWide: true,
-                isLoading: _isLoading,
-                onPressed: _isLoading ? null : _handleAppleSignIn,
-              ),
-              16.verticalSpace,
-
-              // Terms text
-              Text(
-                'By continuing, you agree to our Terms of Service and Privacy Policy',
-                style: AppTextStyle.size(12)
-                    .regular
-                    .withColor(AppColorToken.white..color.withAlpha(70)),
-                textAlign: TextAlign.center,
-              ),
-              24.verticalSpace,
-            ],
+                // Terms text
+                Text(
+                  'By continuing, you agree to our Terms of Service and Privacy Policy',
+                  style: AppTextStyle.size(12)
+                      .regular
+                      .withColor(AppColorToken.white..color.withAlpha(70)),
+                  textAlign: TextAlign.center,
+                ),
+                24.verticalSpace,
+              ],
+            ),
           ),
         ),
       ),

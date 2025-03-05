@@ -19,8 +19,12 @@ class $AssetsLottieGen {
   /// File path: assets/lottie/faq.json
   LottieGenImage get faq => const LottieGenImage('assets/lottie/faq.json');
 
+  /// File path: assets/lottie/loading.json
+  LottieGenImage get loading =>
+      const LottieGenImage('assets/lottie/loading.json');
+
   /// List of all assets
-  List<LottieGenImage> get values => [faq];
+  List<LottieGenImage> get values => [faq, loading];
 }
 
 class $AssetsSvgGen {

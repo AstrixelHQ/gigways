@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
-import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -19,10 +19,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool isTrackerEnabled = false;
   String selectedInsightPeriod = 'Today';
   final List<String> insightPeriods = ['Today', 'Weekly', 'Monthly', 'Yearly'];
+  TrackerData trackerData = TrackerData(
+    hours: 0.0,
+    miles: 0,
+  );
 
-  // Mock data for example purposes
-  final DateTime shiftStartTime =
-      DateTime.now().subtract(const Duration(hours: 1));
+  // Mock data for insights
   final Map<String, Map<String, dynamic>> insightsData = {
     'Today': {
       'miles': 30,
@@ -108,8 +110,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 24.verticalSpace,
 
-                // Tracker Status Card
-                _buildTrackerStatusCard(),
+                // Tracker Card
+                TrackerCard(
+                  isTrackerEnabled: isTrackerEnabled,
+                  trackerData: trackerData,
+                  drivingNow: 4000,
+                  totalDrivers: 70000,
+                  onTrackerToggled: _handleTrackerToggle,
+                  onShiftEnded: _handleShiftEnded,
+                ),
                 24.verticalSpace,
 
                 // My Insights Section
@@ -127,225 +136,70 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildTrackerStatusCard() {
-    final currentData = insightsData[selectedInsightPeriod]!;
+  void _handleTrackerToggle(bool enabled) {
+    setState(() {
+      isTrackerEnabled = enabled;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColorToken.black.value.withAlpha(50),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColorToken.golden.value.withAlpha(30),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Status Header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isTrackerEnabled
-                  ? AppColorToken.golden.value
-                  : Colors.grey[800],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      isTrackerEnabled ? Icons.location_on : Icons.location_off,
-                      color: isTrackerEnabled
-                          ? AppColorToken.black.value
-                          : AppColorToken.white.value,
-                      size: 20,
-                    ),
-                    8.horizontalSpace,
-                    Text(
-                      isTrackerEnabled ? 'Tracker Active' : 'Tracker Inactive',
-                      style: AppTextStyle.size(16).medium.withColor(
-                            isTrackerEnabled
-                                ? AppColorToken.black
-                                : AppColorToken.white,
-                          ),
-                    ),
-                  ],
-                ),
-                Switch(
-                  value: isTrackerEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      isTrackerEnabled = value;
-                    });
-                  },
-                  activeColor: AppColorToken.black.value,
-                  inactiveThumbColor: AppColorToken.white.value,
-                  activeTrackColor: AppColorToken.black.value.withAlpha(150),
-                  inactiveTrackColor: AppColorToken.white.value.withAlpha(50),
-                )
-              ],
-            ),
-          ),
+      // If starting the tracker, initialize shift data
+      if (enabled) {
+        trackerData = TrackerData(
+          hours: 0.0,
+          miles: 0,
+          startTime: DateTime.now(),
+        );
 
-          // Tracker Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Status message
-                Text(
-                  isTrackerEnabled
-                      ? 'End Shift: Turn off Tracker!'
-                      : 'Start tracking your hours and miles',
-                  style: AppTextStyle.size(16).bold.withColor(isTrackerEnabled
-                      ? AppColorToken.golden
-                      : AppColorToken.white),
-                ),
-                16.verticalSpace,
-
-                // Hours and miles
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time_filled,
-                      color: AppColorToken.golden.value,
-                      size: 20,
-                    ),
-                    8.horizontalSpace,
-                    Text(
-                      '${currentData['hours'].toStringAsFixed(2)} hr',
-                      style: AppTextStyle.size(16)
-                          .medium
-                          .withColor(AppColorToken.white),
-                    ),
-                    24.horizontalSpace,
-                    Icon(
-                      Icons.directions_car,
-                      color: AppColorToken.golden.value,
-                      size: 20,
-                    ),
-                    8.horizontalSpace,
-                    Text(
-                      '${currentData['miles']} mi',
-                      style: AppTextStyle.size(16)
-                          .medium
-                          .withColor(AppColorToken.white),
-                    ),
-                  ],
-                ),
-                16.verticalSpace,
-
-                // Start and end time
-                if (isTrackerEnabled)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTimeCard(
-                          label: 'Started',
-                          time: shiftStartTime,
-                        ),
-                      ),
-                      16.horizontalSpace,
-                      Expanded(
-                        child: _buildTimeCard(
-                          label: 'Est. End',
-                          time: shiftStartTime.add(const Duration(hours: 8)),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                // CTA Button for tracking
-                if (!isTrackerEnabled) ...[
-                  16.verticalSpace,
-                  AppButton(
-                    text: 'Start Tracking',
-                    onPressed: () {
-                      setState(() {
-                        isTrackerEnabled = true;
-                      });
-                    },
-                  ),
-                ],
-
-                16.verticalSpace,
-
-                // Status line
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppColorToken.golden.value.withAlpha(10),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Georgia:',
-                        style: AppTextStyle.size(14)
-                            .medium
-                            .withColor(AppColorToken.white),
-                      ),
-                      RichText(
-                        text: TextSpan(
-                          style: AppTextStyle.size(14)
-                              .medium
-                              .withColor(AppColorToken.white),
-                          children: [
-                            TextSpan(
-                              text: '4,000',
-                              style: TextStyle(
-                                color: AppColorToken.golden.value,
-                              ),
-                            ),
-                            const TextSpan(text: ' / '),
-                            const TextSpan(text: '70,000'),
-                            const TextSpan(text: ' driving right now!'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+        // Start a timer to update tracker data in a real app
+        _simulateTracking();
+      } else {
+        // When ending shift, update end time
+        trackerData = trackerData.copyWith(
+          endTime: DateTime.now(),
+        );
+      }
+    });
   }
 
-  Widget _buildTimeCard({required String label, required DateTime time}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColorToken.black.value,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColorToken.golden.value.withAlpha(30),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: AppTextStyle.size(12)
-                .regular
-                .withColor(AppColorToken.white..color.withAlpha(70)),
-          ),
-          4.verticalSpace,
-          Text(
-            DateFormat('h:mm a').format(time),
-            style: AppTextStyle.size(16).bold.withColor(AppColorToken.white),
-          ),
-        ],
+  // This would be replaced with real tracking logic in a production app
+  void _simulateTracking() {
+    if (isTrackerEnabled) {
+      // In a real app, you'd use a proper timer or stream
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted && isTrackerEnabled) {
+          setState(() {
+            // Simulate progress
+            trackerData = TrackerData(
+              hours: 1.5,
+              miles: 30,
+              startTime: trackerData.startTime,
+            );
+          });
+        }
+      });
+    }
+  }
+
+  void _handleShiftEnded(double earnings, double expenses) {
+    // In a real app, you would save this to a database
+    print('Shift ended with earnings: \$$earnings and expenses: \$$expenses');
+
+    // Update insights data with new earnings and expenses
+    setState(() {
+      final currentData = insightsData[selectedInsightPeriod]!;
+      currentData['earnings'] = (currentData['earnings'] as double) + earnings;
+      currentData['expenses'] = (currentData['expenses'] as double) + expenses;
+
+      // Reset tracker data
+      trackerData = TrackerData(
+        hours: 0.0,
+        miles: 0,
+      );
+    });
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Shift data saved successfully!'),
+        backgroundColor: Colors.green,
       ),
     );
   }

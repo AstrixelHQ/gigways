@@ -51,22 +51,20 @@ class UpdateProfilePage extends HookConsumerWidget {
     // Profile image
     final profileImage = useState<File?>(null);
 
-    // Listen for profile update status changes
-    useEffect(() {
-      if (profileState.status == ProfileUpdateStatus.success) {
+    ref.listen(profileNotifierProvider, (previous, next) {
+      if (next.status == ProfileUpdateStatus.success) {
         context.showSuccessSnackbar('Profile updated successfully');
         Future.delayed(duration).then((_) {
           ref.read(profileNotifierProvider.notifier).resetStatus();
         });
-      } else if (profileState.status == ProfileUpdateStatus.error) {
-        context.showErrorSnackbar(
-            profileState.errorMessage ?? 'Failed to update profile');
+      } else if (next.status == ProfileUpdateStatus.error) {
+        context
+            .showErrorSnackbar(next.errorMessage ?? 'Failed to update profile');
         Future.delayed(duration).then((_) {
           ref.read(profileNotifierProvider.notifier).resetStatus();
         });
       }
-      return null;
-    }, [profileState.status]);
+    });
 
     // Function to pick image
     Future<void> pickImage() async {

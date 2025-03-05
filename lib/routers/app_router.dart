@@ -112,11 +112,11 @@ class VerifyEmailRoute extends GoRouteData {
       TypedGoRoute<HomeRoute>(path: HomePage.path),
     ],
   ),
-  TypedStatefulShellBranch(
-    routes: [
-      TypedGoRoute<CommunityRoute>(path: CommunityPage.path),
-    ],
-  ),
+  // TypedStatefulShellBranch(
+  //   routes: [
+  //     TypedGoRoute<CommunityRoute>(path: CommunityPage.path),
+  //   ],
+  // ),
   TypedStatefulShellBranch(
     routes: [
       TypedGoRoute<SettingsRoute>(path: SettingsPage.path),

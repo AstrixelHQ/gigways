@@ -44,6 +44,7 @@ class UserModel {
       'state': state,
       'createdAt': createdAt,
       'lastActiveAt': lastActiveAt,
+      'id': id,
     };
   }
 

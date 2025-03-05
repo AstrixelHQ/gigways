@@ -112,7 +112,7 @@ class SettingsPage extends ConsumerWidget {
 
   List<Widget> _buildSettingsItems(BuildContext context) {
     final items = [
-      (Icons.person_outline, 'User Update'),
+      (Icons.person_outline, 'Update Profile'),
       (Icons.calendar_today_outlined, 'Update Schedule'),
       (Icons.notifications_none_outlined, 'Notification'),
       (Icons.info_outline, 'FAQ'),

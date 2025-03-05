@@ -31,44 +31,14 @@ class _StrikePageState extends ConsumerState<StrikePage> {
               children: [
                 16.verticalSpace,
                 // Header with Profile
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Home',
-                      style: AppTextStyle.size(24)
-                          .bold
-                          .withColor(AppColorToken.golden),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        // Navigate to profile
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColorToken.golden.value,
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.person_outline,
-                          color: AppColorToken.golden.value,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Strike',
+                  style: AppTextStyle.size(24)
+                      .bold
+                      .withColor(AppColorToken.golden),
                 ),
                 24.verticalSpace,
 
-                // if (!showCalendar) ...[
-                //   _buildStrikeOverview(),
-                // ] else ...[
-                //   ,
-                // ],
                 _buildStrikeOverview(),
               ],
             ),

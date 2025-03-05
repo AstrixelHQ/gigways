@@ -15,15 +15,18 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ScaffoldWrapper(
       shouldShowGradient: true,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              16.verticalSpace,
-              // Header
-              Row(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            16.verticalSpace,
+            // Header
+            SafeArea(
+              bottom: false,
+              left: false,
+              right: false,
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
@@ -54,56 +57,56 @@ class SettingsPage extends ConsumerWidget {
                   ),
                 ],
               ),
-              32.verticalSpace,
+            ),
+            32.verticalSpace,
 
-              // App Logo
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColorToken.white.value,
+            // App Logo
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColorToken.white.value,
+                ),
+                child: Center(
+                  child: Text(
+                    'AB',
+                    style: AppTextStyle.size(36)
+                        .bold
+                        .withColor(AppColorToken.black),
                   ),
-                  child: Center(
-                    child: Text(
-                      'AB',
-                      style: AppTextStyle.size(36)
-                          .bold
-                          .withColor(AppColorToken.black),
-                    ),
-                  ),
                 ),
               ),
-              16.verticalSpace,
-              Center(
-                child: Text(
-                  'Aayush Bhattarai',
-                  style:
-                      AppTextStyle.size(24).bold.withColor(AppColorToken.white),
-                ),
+            ),
+            16.verticalSpace,
+            Center(
+              child: Text(
+                'Aayush Bhattarai',
+                style:
+                    AppTextStyle.size(24).bold.withColor(AppColorToken.white),
               ),
-              40.verticalSpace,
+            ),
+            40.verticalSpace,
 
-              // Settings Menu
-              ..._buildSettingsItems(context),
+            // Settings Menu
+            ..._buildSettingsItems(context),
 
-              const Spacer(),
+            // const Spacer(),
 
-              // Sign Out Button
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: AppButton(
-                  text: 'SIGN OUT',
-                  onPressed: () {
-                    // Handle sign out
-                  },
-                  backgroundColor: AppColorToken.golden.value,
-                  textColor: AppColorToken.black.value,
-                ),
+            // Sign Out Button
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: AppButton(
+                text: 'SIGN OUT',
+                onPressed: () {
+                  // Handle sign out
+                },
+                backgroundColor: AppColorToken.golden.value,
+                textColor: AppColorToken.black.value,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

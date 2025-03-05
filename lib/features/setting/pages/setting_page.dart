@@ -7,6 +7,7 @@ import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -30,31 +31,10 @@ class SettingsPage extends ConsumerWidget {
               bottom: false,
               left: false,
               right: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Setting',
-                    style: AppTextStyle.size(24)
-                        .bold
-                        .withColor(AppColorToken.golden),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      // Navigate to profile update page
-                      UpdateProfileRoute().push(context);
-                    },
-                    child: GradientAvatar(
-                      name: userData?.fullName ?? 'User',
-                      imageUrl: userData?.profileImageUrl,
-                      size: 48,
-                      isEditable: false,
-                      onEdit: () {
-                        UpdateProfileRoute().push(context);
-                      },
-                    ),
-                  )
-                ],
+              child: Text(
+                'Setting',
+                style:
+                    AppTextStyle.size(24).bold.withColor(AppColorToken.golden),
               ),
             ),
             32.verticalSpace,
@@ -126,7 +106,7 @@ class SettingsPage extends ConsumerWidget {
         child: InkWell(
           onTap: () {
             // Handle navigation
-            if (item.$2 == 'User Update') {
+            if (item.$2 == 'Update Profile') {
               UpdateProfileRoute().push(context);
             } else if (item.$2 == 'Update Schedule') {
               UpdateScheduleRoute().push(context);
@@ -137,7 +117,7 @@ class SettingsPage extends ConsumerWidget {
             } else if (item.$2 == 'Legal and Policies') {
               LegalPoliciesRoute().push(context);
             } else if (item.$2 == 'Share with Other!') {
-              // Share app
+              Share.share('Check out GigWays App');
             }
           },
           child: Row(

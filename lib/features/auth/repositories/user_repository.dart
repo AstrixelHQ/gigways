@@ -106,6 +106,14 @@ class UserRepository {
       'lastActiveAt': DateTime.now(),
     });
   }
+
+  // Specifically update user schedule
+  Future<void> updateUserSchedule(String userId, Map<String, dynamic> scheduleData) async {
+    await userDoc(userId).update({
+      'schedule': scheduleData,
+      'lastActiveAt': DateTime.now(),
+    });
+  }
 }
 
 @Riverpod(keepAlive: true)

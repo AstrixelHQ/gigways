@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gigways/features/schedule/models/schedule_models.dart';
 
 class UserModel {
   final String id;
@@ -9,6 +10,7 @@ class UserModel {
   final String? state;
   final DateTime createdAt;
   final DateTime lastActiveAt;
+  final ScheduleModel? schedule;
 
   UserModel({
     required this.id,
@@ -19,10 +21,18 @@ class UserModel {
     this.state,
     required this.createdAt,
     required this.lastActiveAt,
+    this.schedule,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Parse schedule data if available
+    ScheduleModel? scheduleData;
+    if (data['schedule'] != null) {
+      scheduleData = ScheduleModel.fromMap(data['schedule']);
+    }
+
     return UserModel(
       id: doc.id,
       fullName: data['fullName'] ?? '',
@@ -32,6 +42,7 @@ class UserModel {
       state: data['state'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       lastActiveAt: (data['lastActiveAt'] as Timestamp).toDate(),
+      schedule: scheduleData,
     );
   }
 
@@ -45,6 +56,7 @@ class UserModel {
       'createdAt': createdAt,
       'lastActiveAt': lastActiveAt,
       'id': id,
+      'schedule': schedule?.toMap(),
     };
   }
 
@@ -57,6 +69,7 @@ class UserModel {
     String? state,
     DateTime? createdAt,
     DateTime? lastActiveAt,
+    ScheduleModel? schedule,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -67,6 +80,7 @@ class UserModel {
       state: state ?? this.state,
       createdAt: createdAt ?? this.createdAt,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+      schedule: schedule ?? this.schedule,
     );
   }
 }

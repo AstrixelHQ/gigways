@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
+import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/app_colors.dart';
 import 'package:gigways/core/theme/app_text_styles.dart';
 import 'package:gigways/core/widgets/app_button.dart';
+import 'package:gigways/core/widgets/app_snackbar.dart';
+import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/schedule/models/schedule_models.dart';
+import 'package:gigways/features/schedule/notifiers/schedule_notifier.dart';
 import 'package:time_range_picker/time_range_picker.dart';
 
 class UpdateSchedulePage extends ConsumerStatefulWidget {
@@ -17,9 +22,7 @@ class UpdateSchedulePage extends ConsumerStatefulWidget {
 }
 
 class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
-  bool isPartTime = true;
-  bool isDayShift = true;
-  Map<String, bool> selectedDays = {
+  final Map<String, bool> selectedDays = {
     'Monday': true,
     'Tuesday': true,
     'Wednesday': true,
@@ -29,178 +32,236 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
     'Sunday': false,
   };
 
-  Map<String, PickerTimeRange?> dayTimeRanges = {
-    'Monday': null,
-    'Tuesday': null,
-    'Wednesday': null,
-    'Thursday': null,
-    'Friday': null,
-    'Saturday': null,
-    'Sunday': null,
-  };
+  // Time ranges for local UI management
+  final Map<String, PickerTimeRange?> dayTimeRanges = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeScheduleData();
+    });
+  }
+
+  void _initializeScheduleData() {
+    final schedule = ref.read(scheduleNotifierProvider).schedule;
+    if (schedule == null) return;
+
+    // Set employment type and shift preference in notifier
+    // (Data is already in the notifier, just ensuring it's there)
+
+    // Initialize the UI state from the schedule
+    setState(() {
+      // Initialize selected days
+      schedule.weeklySchedule.forEach((day, daySchedule) {
+        selectedDays[day] = daySchedule != null;
+
+        if (daySchedule != null) {
+          final startTime = TimeOfDay(
+            hour: daySchedule.timeRange.start.hour,
+            minute: daySchedule.timeRange.start.minute,
+          );
+
+          final endTime = TimeOfDay(
+            hour: daySchedule.timeRange.end.hour,
+            minute: daySchedule.timeRange.end.minute,
+          );
+
+          dayTimeRanges[day] = PickerTimeRange(start: startTime, end: endTime);
+        }
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ScaffoldWrapper(
-      shouldShowGradient: true,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                16.verticalSpace,
-                // Header
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border.all(
+    final scheduleState = ref.watch(scheduleNotifierProvider);
+    final isLoading = scheduleState.status == ScheduleStatus.loading;
+    final schedule = scheduleState.schedule ?? ScheduleModel.defaultSchedule();
+
+    // Listen for status changes
+    ref.listen(scheduleNotifierProvider, (previous, current) {
+      if (current.status == ScheduleStatus.success) {
+        context.showSuccessSnackbar('Schedule updated successfully');
+      } else if (current.status == ScheduleStatus.error) {
+        context.showErrorSnackbar('Error updating schedule');
+      }
+    });
+
+    return LoadingOverlay(
+      isLoading: isLoading,
+      child: ScaffoldWrapper(
+        shouldShowGradient: true,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  16.verticalSpace,
+                  // Header
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: AppColorToken.golden.value,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_ios_new,
                             color: AppColorToken.golden.value,
+                            size: 20,
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColorToken.golden.value,
-                          size: 20,
                         ),
                       ),
-                    ),
-                    16.horizontalSpace,
-                    Text(
-                      'My Schedule',
-                      style: AppTextStyle.size(24)
-                          .bold
-                          .withColor(AppColorToken.white),
-                    ),
-                  ],
-                ),
-                32.verticalSpace,
-
-                // Employment Type Selection
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withAlpha(50),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColorToken.golden.value.withAlpha(30),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                      16.horizontalSpace,
                       Text(
-                        'Employment Type',
-                        style: AppTextStyle.size(18)
+                        'My Schedule',
+                        style: AppTextStyle.size(24)
                             .bold
-                            .withColor(AppColorToken.golden),
-                      ),
-                      16.verticalSpace,
-                      Row(
-                        children: [
-                          _buildTypeButton(
-                            isSelected: isPartTime,
-                            text: 'Part-Time',
-                            onTap: () => setState(() => isPartTime = true),
-                          ),
-                          16.horizontalSpace,
-                          _buildTypeButton(
-                            isSelected: !isPartTime,
-                            text: 'Full-Time',
-                            onTap: () => setState(() => isPartTime = false),
-                          ),
-                        ],
+                            .withColor(AppColorToken.white),
                       ),
                     ],
                   ),
-                ),
-                24.verticalSpace,
+                  32.verticalSpace,
 
-                // Shift Preference
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withAlpha(50),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColorToken.golden.value.withAlpha(30),
+                  // Employment Type Selection
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColorToken.golden.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Employment Type',
+                          style: AppTextStyle.size(18)
+                              .bold
+                              .withColor(AppColorToken.golden),
+                        ),
+                        16.verticalSpace,
+                        Row(
+                          children: [
+                            _buildTypeButton(
+                              isSelected:
+                                  schedule.employmentType == 'Part-Time',
+                              text: 'Part-Time',
+                              onTap: () => ref
+                                  .read(scheduleNotifierProvider.notifier)
+                                  .updateEmploymentType('Part-Time'),
+                            ),
+                            16.horizontalSpace,
+                            _buildTypeButton(
+                              isSelected:
+                                  schedule.employmentType == 'Full-Time',
+                              text: 'Full-Time',
+                              onTap: () => ref
+                                  .read(scheduleNotifierProvider.notifier)
+                                  .updateEmploymentType('Full-Time'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Shift Preference',
-                        style: AppTextStyle.size(18)
-                            .bold
-                            .withColor(AppColorToken.golden),
-                      ),
-                      16.verticalSpace,
-                      Row(
-                        children: [
-                          _buildShiftButton(
-                            isSelected: isDayShift,
-                            icon: Icons.wb_sunny_outlined,
-                            text: 'Day',
-                            onTap: () => setState(() => isDayShift = true),
-                          ),
-                          16.horizontalSpace,
-                          _buildShiftButton(
-                            isSelected: !isDayShift,
-                            icon: Icons.nightlight_outlined,
-                            text: 'Night',
-                            onTap: () => setState(() => isDayShift = false),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                24.verticalSpace,
+                  24.verticalSpace,
 
-                // Weekly Schedule
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColorToken.black.value.withAlpha(50),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColorToken.golden.value.withAlpha(30),
+                  // Shift Preference
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColorToken.golden.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Shift Preference',
+                          style: AppTextStyle.size(18)
+                              .bold
+                              .withColor(AppColorToken.golden),
+                        ),
+                        16.verticalSpace,
+                        Row(
+                          children: [
+                            _buildShiftButton(
+                              isSelected: schedule.shiftPreference == 'Day',
+                              icon: Icons.wb_sunny_outlined,
+                              text: 'Day',
+                              onTap: () => ref
+                                  .read(scheduleNotifierProvider.notifier)
+                                  .updateShiftPreference('Day'),
+                            ),
+                            16.horizontalSpace,
+                            _buildShiftButton(
+                              isSelected: schedule.shiftPreference == 'Night',
+                              icon: Icons.nightlight_outlined,
+                              text: 'Night',
+                              onTap: () => ref
+                                  .read(scheduleNotifierProvider.notifier)
+                                  .updateShiftPreference('Night'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Weekly Schedule',
-                        style: AppTextStyle.size(18)
-                            .bold
-                            .withColor(AppColorToken.golden),
-                      ),
-                      16.verticalSpace,
-                      ...selectedDays.entries.map((entry) => _buildDaySchedule(
-                            day: entry.key,
-                            isSelected: entry.value,
-                            timeRange: dayTimeRanges[entry.key],
-                          )),
-                    ],
-                  ),
-                ),
-                32.verticalSpace,
+                  24.verticalSpace,
 
-                // Save Button
-                AppButton(
-                  text: 'Save Schedule',
-                  onPressed: _saveSchedule,
-                ),
-                24.verticalSpace,
-              ],
+                  // Weekly Schedule
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColorToken.golden.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Weekly Schedule',
+                          style: AppTextStyle.size(18)
+                              .bold
+                              .withColor(AppColorToken.golden),
+                        ),
+                        16.verticalSpace,
+                        ...selectedDays.entries
+                            .map((entry) => _buildDaySchedule(
+                                  day: entry.key,
+                                  isSelected: entry.value,
+                                  timeRange: dayTimeRanges[entry.key],
+                                )),
+                      ],
+                    ),
+                  ),
+                  32.verticalSpace,
+
+                  // Save Button
+                  AppButton(
+                    text: 'Save Schedule',
+                    onPressed: _saveSchedule,
+                  ),
+                  24.verticalSpace,
+                ],
+              ),
             ),
           ),
         ),
@@ -299,6 +360,12 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
                 selectedDays[day] = !selectedDays[day]!;
                 if (!selectedDays[day]!) {
                   dayTimeRanges[day] = null;
+                  // Update the schedule in the notifier
+                  ref.read(scheduleNotifierProvider.notifier).updateDaySchedule(
+                        day,
+                        null,
+                        null,
+                      );
                 }
               });
             },
@@ -363,56 +430,58 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
   }
 
   Future<void> _selectTimeRange(String day) async {
-    final PickerTimeRange? result = await _showTimeRangePicker(
+    // Default start/end times
+    final defaultStart =
+        dayTimeRanges[day]?.start ?? const TimeOfDay(hour: 9, minute: 0);
+    final defaultEnd =
+        dayTimeRanges[day]?.end ?? const TimeOfDay(hour: 17, minute: 0);
+
+    final TimeRange? result = await showTimeRangePicker(
       context: context,
-      start: dayTimeRanges[day]?.start ?? TimeOfDay(hour: 9, minute: 0),
-      end: dayTimeRanges[day]?.end ?? TimeOfDay(hour: 17, minute: 0),
-      disabledTime: PickerTimeRange(
-        // startTime: TimeOfDay(hour: 23, minute: 0),
-        // endTime: TimeOfDay(hour: 5, minute: 0),
-        start: TimeOfDay(hour: 0, minute: 0),
-        end: TimeOfDay(hour: 0, minute: 0),
-      ),
-      backgroundColor: AppColorToken.black.value,
-      selectedColor: AppColorToken.golden.value,
+      start: defaultStart,
+      end: defaultEnd,
+      use24HourFormat: false,
       strokeColor: AppColorToken.golden.value,
       handlerColor: AppColorToken.golden.value,
-      strokeWidth: 4,
-      timeTextStyle:
-          AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-      activeTimeTextStyle:
-          AppTextStyle.size(16).bold.withColor(AppColorToken.black),
+      selectedColor: AppColorToken.golden.value,
+      backgroundColor: AppColorToken.black.value,
+      ticks: 24,
+      ticksColor: AppColorToken.white.value.withAlpha(50),
+      labels: ["12 am", "3 am", "6 am", "9 am", "12 pm", "3 pm", "6 pm", "9 pm"]
+          .asMap()
+          .entries
+          .map((e) {
+        return ClockLabel.fromIndex(idx: e.key, length: 8, text: e.value);
+      }).toList(),
+      labelOffset: 30,
+      rotateLabels: false,
+      padding: 60,
     );
 
     if (result != null) {
       setState(() {
-        dayTimeRanges[day] = result;
+        dayTimeRanges[day] = PickerTimeRange(
+          start: result.startTime,
+          end: result.endTime,
+        );
+
+        // Also update the notifier
+        ref.read(scheduleNotifierProvider.notifier).updateDaySchedule(
+              day,
+              result.startTime,
+              result.endTime,
+            );
       });
     }
   }
 
   void _saveSchedule() {
-    // Prepare schedule data
-    final schedule = {
-      'employmentType': isPartTime ? 'Part-Time' : 'Full-Time',
-      'shiftPreference': isDayShift ? 'Day' : 'Night',
-      'weeklySchedule': selectedDays.map((day, isSelected) => MapEntry(
-            day,
-            isSelected
-                ? {
-                    'isSelected': true,
-                    'timeRange': dayTimeRanges[day]?.toMap(),
-                  }
-                : {'isSelected': false},
-          )),
-    };
-
-    // Save schedule (implement your save logic)
-    print('Saving schedule: $schedule');
+    // Save schedule data
+    ref.read(scheduleNotifierProvider.notifier).saveSchedule();
   }
 }
 
-// Time Range Model
+// Time Range Model for UI
 class PickerTimeRange {
   final TimeOfDay start;
   final TimeOfDay end;
@@ -426,71 +495,9 @@ class PickerTimeRange {
     return '${_formatTime(start)} - ${_formatTime(end)}';
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'start': {'hour': start.hour, 'minute': start.minute},
-      'end': {'hour': end.hour, 'minute': end.minute},
-    };
-  }
-
   String _formatTime(TimeOfDay time) {
-    final hour = time.hourOfPeriod;
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-    return '${hour == 0 ? 12 : hour}:${time.minute.toString().padLeft(2, '0')} $period';
-  }
-}
-
-// Time Range Picker Dialog
-Future<PickerTimeRange?> _showTimeRangePicker({
-  required BuildContext context,
-  required TimeOfDay start,
-  required TimeOfDay end,
-  required PickerTimeRange disabledTime,
-  required Color backgroundColor,
-  required Color selectedColor,
-  required Color strokeColor,
-  required Color handlerColor,
-  required double strokeWidth,
-  required TextStyle timeTextStyle,
-  required TextStyle activeTimeTextStyle,
-}) async {
-  final TimeRange? result = await showTimeRangePicker(
-    context: context,
-    paintingStyle: PaintingStyle.fill,
-    labels: ["12 am", "3 am", "6 am", "9 am", "12 pm", "3 pm", "6 pm", "9 pm"]
-        .asMap()
-        .entries
-        .map((e) {
-      return ClockLabel.fromIndex(idx: e.key, length: 8, text: e.value);
-    }).toList(),
-    labelOffset: -30,
-    autoAdjustLabels: true,
-    handlerColor: handlerColor,
-    labelStyle: const TextStyle(
-      fontSize: 22,
-      color: Colors.grey,
-      fontWeight: FontWeight.w500,
-    ),
-    ticks: 8,
-    clockRotation: 180.0,
-    timeTextStyle: TextStyle(
-      color: AppColorToken.golden.color,
-      fontSize: 24,
-      fontWeight: FontWeight.w500,
-    ),
-    activeTimeTextStyle: TextStyle(
-      color: AppColorToken.orange.color,
-      fontSize: 25,
-      fontWeight: FontWeight.w500,
-    ),
-  );
-
-  if (result != null) {
-    return PickerTimeRange(
-      start: result.startTime,
-      end: result.endTime,
-    );
-  } else {
-    return null;
+    return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
   }
 }

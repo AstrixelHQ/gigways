@@ -7,7 +7,11 @@ extension SnackbarExtension on BuildContext {
     );
   }
 
-  void showSuccessSnackbar(String message) {}
+  void showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(this).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
 
   void showLoadingSnackbar(String message) {
     ScaffoldMessenger.of(this).showSnackBar(

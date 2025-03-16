@@ -1,4 +1,4 @@
-package app.gigways.gigways
+package app.gigway
 
 import io.flutter.embedding.android.FlutterActivity
 

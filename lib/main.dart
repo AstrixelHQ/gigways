@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
+import 'package:gigways/core/services/activity_service.dart';
 import 'package:gigways/core/services/notification_service.dart';
 import 'package:gigways/core/utils/ui_utils.dart';
 import 'package:gigways/firebase_options.dart';
@@ -15,6 +16,8 @@ Future<void> main() async {
 
 FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  ActivityService().start();
 
   // Initialize Firebase
   await Firebase.initializeApp(

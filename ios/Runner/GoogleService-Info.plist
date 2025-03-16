@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u.apps.googleusercontent.com</string>
+	<string>594284866867-8u5d7cuk7udblr7gijteje41e28nvfff.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u</string>
+	<string>com.googleusercontent.apps.594284866867-8u5d7cuk7udblr7gijteje41e28nvfff</string>
 	<key>API_KEY</key>
 	<string>AIzaSyBO2mE0AuGxsTRruoEQf0cZq7dUh2Cjv9g</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>app.gigways.gigways</string>
+	<string>app.gigway</string>
 	<key>PROJECT_ID</key>
 	<string>gigwayhero</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:594284866867:ios:6dcd2d633eff3fd8f02246</string>
+	<string>1:594284866867:ios:6c90931adb5b722cf02246</string>
 </dict>
 </plist>

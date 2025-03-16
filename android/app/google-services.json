@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:594284866867:android:938f97dbd6599a79f02246",
+        "android_client_info": {
+          "package_name": "app.gigway"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "594284866867-6g3h11o1rr0qetn3lueg9vfqn5hl2rpt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzUUwk7jiyu9q_SLACFTvsrj8KoeBkDrA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "594284866867-6g3h11o1rr0qetn3lueg9vfqn5hl2rpt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "app.gigways.gigways"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:594284866867:android:10f73aa60e86e62cf02246",
         "android_client_info": {
           "package_name": "app.gigways.gigways"
@@ -29,6 +65,13 @@
             {
               "client_id": "594284866867-6g3h11o1rr0qetn3lueg9vfqn5hl2rpt.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "app.gigways.gigways"
+              }
             }
           ]
         }

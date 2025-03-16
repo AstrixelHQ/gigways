@@ -348,42 +348,42 @@ class _TrackerCardState extends State<TrackerCard>
           16.verticalSpace,
 
           // Status line
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColorToken.golden.value.withAlpha(10),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Georgia:',
-                  style: AppTextStyle.size(14)
-                      .medium
-                      .withColor(AppColorToken.white),
-                ),
-                RichText(
-                  text: TextSpan(
-                    style: AppTextStyle.size(14)
-                        .medium
-                        .withColor(AppColorToken.white),
-                    children: [
-                      TextSpan(
-                        text: widget.drivingNow.toString(),
-                        style: TextStyle(
-                          color: AppColorToken.golden.value,
-                        ),
-                      ),
-                      const TextSpan(text: ' / '),
-                      TextSpan(text: widget.totalDrivers.toString()),
-                      const TextSpan(text: ' driving right now!'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Container(
+          //   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          //   decoration: BoxDecoration(
+          //     color: AppColorToken.golden.value.withAlpha(10),
+          //     borderRadius: BorderRadius.circular(8),
+          //   ),
+          //   child: Row(
+          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //     children: [
+          //       Text(
+          //         'Georgia:',
+          //         style: AppTextStyle.size(14)
+          //             .medium
+          //             .withColor(AppColorToken.white),
+          //       ),
+          //       RichText(
+          //         text: TextSpan(
+          //           style: AppTextStyle.size(14)
+          //               .medium
+          //               .withColor(AppColorToken.white),
+          //           children: [
+          //             TextSpan(
+          //               text: widget.drivingNow.toString(),
+          //               style: TextStyle(
+          //                 color: AppColorToken.golden.value,
+          //               ),
+          //             ),
+          //             const TextSpan(text: ' / '),
+          //             TextSpan(text: widget.totalDrivers.toString()),
+          //             const TextSpan(text: ' driving right now!'),
+          //           ],
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
         ],
       ),
     );

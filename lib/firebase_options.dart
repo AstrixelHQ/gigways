@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAzUUwk7jiyu9q_SLACFTvsrj8KoeBkDrA',
-    appId: '1:594284866867:android:10f73aa60e86e62cf02246',
+    appId: '1:594284866867:android:938f97dbd6599a79f02246',
     messagingSenderId: '594284866867',
     projectId: 'gigwayhero',
     storageBucket: 'gigwayhero.firebasestorage.app',
@@ -59,11 +59,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBO2mE0AuGxsTRruoEQf0cZq7dUh2Cjv9g',
-    appId: '1:594284866867:ios:6dcd2d633eff3fd8f02246',
+    appId: '1:594284866867:ios:6c90931adb5b722cf02246',
     messagingSenderId: '594284866867',
     projectId: 'gigwayhero',
     storageBucket: 'gigwayhero.firebasestorage.app',
-    iosClientId: '594284866867-i6gm1dt2mnnke9e8ve55v03c8vfguf0u.apps.googleusercontent.com',
-    iosBundleId: 'app.gigways.gigways',
+    iosClientId: '594284866867-8u5d7cuk7udblr7gijteje41e28nvfff.apps.googleusercontent.com',
+    iosBundleId: 'app.gigway',
   );
+
 }

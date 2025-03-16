@@ -77,9 +77,8 @@ class SettingsPage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: AppButton(
                 text: 'SIGN OUT',
-                onPressed: () {
-                  // Handle sign out
-                },
+                onPressed: () =>
+                    ref.read(authNotifierProvider.notifier).signOut(),
                 backgroundColor: AppColorToken.golden.value,
                 textColor: AppColorToken.black.value,
               ),

@@ -67,24 +67,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
                 // Logo
                 Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColorToken.black.value,
-                    border: Border.all(
-                      color: AppColorToken.golden.value,
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'GW',
-                      style: AppTextStyle.size(40)
-                          .bold
-                          .withColor(AppColorToken.golden),
-                    ),
-                  ),
+                  width: 300,
+                  height: 300,
+                  child: Assets.svg.logo.svg(fit: BoxFit.cover),
                 ),
                 32.verticalSpace,
 
@@ -104,12 +89,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         style: AppTextStyle.size(32)
                             .bold
                             .withColor(AppColorToken.golden),
-                      ),
-                      TextSpan(
-                        text: 'Hero',
-                        style: AppTextStyle.size(32)
-                            .regular
-                            .withColor(AppColorToken.white),
                       ),
                     ],
                   ),

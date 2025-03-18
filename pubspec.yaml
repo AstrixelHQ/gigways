@@ -77,5 +77,5 @@ flutter_gen:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/image/logo.jpg"
+  image_path: "assets/image/logo.png"
   remove_alpha_ios: true

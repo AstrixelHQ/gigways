@@ -66,10 +66,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 const Spacer(flex: 2),
 
                 // Logo
-                Container(
-                  width: 300,
-                  height: 300,
-                  child: Assets.svg.logo.svg(fit: BoxFit.cover),
+                Center(
+                  child: Assets.svg.logo.svg(
+                    width: 180,
+                    height: 180,
+                  ),
                 ),
                 32.verticalSpace,
 

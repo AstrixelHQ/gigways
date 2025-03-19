@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gigways/core/assets/assets.gen.dart';
+import 'package:gigways/core/theme/app_colors.dart';
 import 'package:lottie/lottie.dart';
 
 class LoadingOverlay extends StatelessWidget {
@@ -24,7 +25,8 @@ class LoadingOverlay extends StatelessWidget {
         if (isLoading)
           Positioned.fill(
             child: Container(
-              color: backgroundColor ?? Colors.grey.withOpacity(0.5),
+              color: backgroundColor ??
+                  AppColorToken.lightDark.color.withOpacity(0.9),
               child: Center(
                 child: Assets.lottie.loading.lottie(),
               ),

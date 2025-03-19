@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gigways/core/assets/assets.gen.dart';
 import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
@@ -135,7 +136,7 @@ class _SplashScreenState extends ConsumerState<SplashPage>
                           width: 120,
                           height: 120,
                           decoration: BoxDecoration(
-                            color: AppColorToken.surface.value,
+                            color: AppColorToken.darkGrey.value,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
@@ -146,10 +147,12 @@ class _SplashScreenState extends ConsumerState<SplashPage>
                               ),
                             ],
                           ),
-                          child: Icon(
-                            Icons.rocket_launch,
-                            size: 60,
-                            color: AppColorToken.primary.value,
+                          child: Center(
+                            child: Assets.svg.logo.svg(
+                              fit: BoxFit.cover,
+                              width: 80,
+                              height: 80,
+                            ),
                           ),
                         ),
                       ),

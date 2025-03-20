@@ -9,6 +9,7 @@ import 'package:gigways/core/utils/ui_utils.dart';
 import 'package:gigways/firebase_options.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 Future<void> main() async {
   await initilizer(() => const App());
@@ -23,6 +24,10 @@ FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Request location permissions
+  await Permission.location.request();
+  await Permission.activityRecognition.request();
 
   await NotificationService().initialize();
   runApp(

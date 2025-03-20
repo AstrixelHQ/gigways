@@ -1,63 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
+import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
+import 'package:gigways/features/tracking/models/tracking_model.dart';
+import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:intl/intl.dart';
 
-class HomePage extends ConsumerStatefulWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   static const String path = '/home';
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends ConsumerState<HomePage> {
-  bool isTrackerEnabled = false;
-  String selectedInsightPeriod = 'Today';
-  final List<String> insightPeriods = ['Today', 'Weekly', 'Monthly', 'Yearly'];
-  TrackerData trackerData = TrackerData(
-    hours: 0.0,
-    miles: 0,
-  );
-
-  // Mock data for insights
-  final Map<String, Map<String, dynamic>> insightsData = {
-    'Today': {
-      'miles': 30,
-      'hours': 1.0,
-      'earnings': 25.50,
-      'expenses': 5.75,
-    },
-    'Weekly': {
-      'miles': 210,
-      'hours': 38.5,
-      'earnings': 750.80,
-      'expenses': 120.45,
-    },
-    'Monthly': {
-      'miles': 850,
-      'hours': 160.0,
-      'earnings': 3250.45,
-      'expenses': 485.75,
-    },
-    'Yearly': {
-      'miles': 10500,
-      'hours': 1920.0,
-      'earnings': 38500.75,
-      'expenses': 5840.25,
-    },
-  };
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userData = ref.watch(authNotifierProvider).userData;
+    final trackingState = ref.watch(trackingNotifierProvider);
+    final trackingNotifier = ref.read(trackingNotifierProvider.notifier);
+
+    // Active tracking session
+    final activeSession = trackingState.activeSession;
+    final isTrackerEnabled = trackingState.status == TrackingStatus.active;
+
+    // Create tracker data from session
+    final trackerData = _buildTrackerData(activeSession);
+
     return ScaffoldWrapper(
       shouldShowGradient: true,
       body: SafeArea(
@@ -106,15 +78,26 @@ class _HomePageState extends ConsumerState<HomePage> {
                 TrackerCard(
                   isTrackerEnabled: isTrackerEnabled,
                   trackerData: trackerData,
-                  drivingNow: 4000,
-                  totalDrivers: 70000,
-                  onTrackerToggled: _handleTrackerToggle,
-                  onShiftEnded: _handleShiftEnded,
+                  drivingNow: trackingState.drivingNow,
+                  totalDrivers: trackingState.totalDrivers,
+                  onTrackerToggled: (enabled) {
+                    if (enabled) {
+                      trackingNotifier.startTracking();
+                    } else {
+                      trackingNotifier.stopTracking();
+                    }
+                  },
+                  onShiftEnded: (earnings, expenses) {
+                    trackingNotifier.endShift(
+                      earnings: earnings,
+                      expenses: expenses,
+                    );
+                  },
                 ),
                 24.verticalSpace,
 
                 // My Insights Section
-                _buildInsightsSection(),
+                _buildInsightsSection(trackingState, trackingNotifier),
                 24.verticalSpace,
 
                 // News and Ads Section
@@ -128,76 +111,35 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  void _handleTrackerToggle(bool enabled) {
-    setState(() {
-      isTrackerEnabled = enabled;
-
-      // If starting the tracker, initialize shift data
-      if (enabled) {
-        trackerData = TrackerData(
-          hours: 0.0,
-          miles: 0,
-          startTime: DateTime.now(),
-        );
-
-        // Start a timer to update tracker data in a real app
-        _simulateTracking();
-      } else {
-        // When ending shift, update end time
-        trackerData = trackerData.copyWith(
-          endTime: DateTime.now(),
-        );
-      }
-    });
-  }
-
-  // This would be replaced with real tracking logic in a production app
-  void _simulateTracking() {
-    if (isTrackerEnabled) {
-      // In a real app, you'd use a proper timer or stream
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && isTrackerEnabled) {
-          setState(() {
-            // Simulate progress
-            trackerData = TrackerData(
-              hours: 1.5,
-              miles: 30,
-              startTime: trackerData.startTime,
-            );
-          });
-        }
-      });
-    }
-  }
-
-  void _handleShiftEnded(double earnings, double expenses) {
-    // In a real app, you would save this to a database
-    print('Shift ended with earnings: \$$earnings and expenses: \$$expenses');
-
-    // Update insights data with new earnings and expenses
-    setState(() {
-      final currentData = insightsData[selectedInsightPeriod]!;
-      currentData['earnings'] = (currentData['earnings'] as double) + earnings;
-      currentData['expenses'] = (currentData['expenses'] as double) + expenses;
-
-      // Reset tracker data
-      trackerData = TrackerData(
+  // Convert TrackingSession to TrackerData
+  TrackerData _buildTrackerData(TrackingSession? session) {
+    if (session == null) {
+      return TrackerData(
         hours: 0.0,
         miles: 0,
       );
-    });
+    }
 
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Shift data saved successfully!'),
-        backgroundColor: Colors.green,
-      ),
+    return TrackerData(
+      hours: session.durationInSeconds / 3600, // Convert seconds to hours
+      miles: session.miles.round(),
+      startTime: session.startTime,
+      endTime: session.endTime,
+      earnings: session.earnings,
+      expenses: session.expenses,
     );
   }
 
-  Widget _buildInsightsSection() {
-    final currentData = insightsData[selectedInsightPeriod]!;
+  Widget _buildInsightsSection(
+      TrackingState trackingState, TrackingNotifier trackingNotifier) {
+    final insights = trackingState.selectedInsights;
+    final selectedPeriod = trackingState.selectedInsightPeriod;
+
+    // Default values if insights are not available
+    final miles = insights?.totalMiles.round() ?? 0;
+    final hours = insights?.hours.toStringAsFixed(1) ?? '0.0';
+    final earnings = insights?.totalEarnings ?? 0.0;
+    final expenses = insights?.totalExpenses ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -232,7 +174,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: selectedInsightPeriod,
+                    value: selectedPeriod,
                     icon: Icon(
                       Icons.arrow_drop_down,
                       color: AppColorToken.golden.value,
@@ -242,7 +184,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         .withColor(AppColorToken.white),
                     dropdownColor: AppColorToken.black.value,
                     isDense: true,
-                    items: insightPeriods.map((String period) {
+                    items: ['Today', 'Weekly', 'Monthly', 'Yearly']
+                        .map((String period) {
                       return DropdownMenuItem<String>(
                         value: period,
                         child: Text(period),
@@ -250,9 +193,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     }).toList(),
                     onChanged: (String? value) {
                       if (value != null) {
-                        setState(() {
-                          selectedInsightPeriod = value;
-                        });
+                        trackingNotifier.setInsightPeriod(value);
                       }
                     },
                   ),
@@ -270,7 +211,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: _buildInsightCard(
                   icon: Icons.directions_car,
                   title: 'Miles',
-                  value: '${currentData['miles']}',
+                  value: '$miles',
                   suffix: 'mi',
                 ),
               ),
@@ -280,7 +221,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: _buildInsightCard(
                   icon: Icons.access_time_filled,
                   title: 'Hours',
-                  value: '${currentData['hours'].toStringAsFixed(1)}',
+                  value: hours,
                   suffix: 'hrs',
                 ),
               ),
@@ -294,7 +235,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: _buildInsightCard(
                   icon: Icons.attach_money,
                   title: 'Earnings',
-                  value: '\$${currentData['earnings'].toStringAsFixed(2)}',
+                  value: '\$${earnings.toStringAsFixed(2)}',
                   valueColor: AppColorToken.success.value,
                 ),
               ),
@@ -304,7 +245,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: _buildInsightCard(
                   icon: Icons.receipt_long,
                   title: 'Expenses',
-                  value: '\$${currentData['expenses'].toStringAsFixed(2)}',
+                  value: '\$${expenses.toStringAsFixed(2)}',
                   valueColor: AppColorToken.error.value,
                 ),
               ),

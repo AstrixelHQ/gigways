@@ -231,7 +231,6 @@ class AuthNotifier extends _$AuthNotifier {
     _controller.add(state);
 
     try {
-      // Start the sign-in flow
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
@@ -239,13 +238,11 @@ class AuthNotifier extends _$AuthNotifier {
         ],
       );
 
-      // Create OAuthCredential
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: credential.identityToken,
         accessToken: credential.authorizationCode,
       );
 
-      // Sign in with credential
       final userCredential = await _auth.signInWithCredential(oauthCredential);
       final user = userCredential.user;
 
@@ -253,7 +250,6 @@ class AuthNotifier extends _$AuthNotifier {
         throw Exception('Failed to sign in with Apple');
       }
 
-      // For Apple, we need to combine first and last name as Apple might not always provide them
       String? fullName;
       if (credential.givenName != null && credential.familyName != null) {
         fullName = '${credential.givenName} ${credential.familyName}';
@@ -268,7 +264,7 @@ class AuthNotifier extends _$AuthNotifier {
     } catch (e) {
       state = state.copyWith(
         state: AuthState.error,
-        errorMessage: e.toString(),
+        errorMessage: 'Failed to sign in with Apple',
       );
       _controller.add(state);
     }

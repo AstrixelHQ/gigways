@@ -42,8 +42,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         // Show error snackbar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${current.errorMessage}'),
+            content: Text(
+              'Error: ${current.errorMessage}',
+              style:
+                  AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+            ),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -67,10 +72,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
                 // Logo
                 Center(
-                  child: Assets.svg.logo.svg(
-                    width: 180,
-                    height: 180,
-                  ),
+                  child: Assets.svg.logo.svg(width: 180, height: 180),
                 ),
                 32.verticalSpace,
 
@@ -112,7 +114,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Google button
                     Expanded(
                       child: _buildSocialButton(
                         context: context,

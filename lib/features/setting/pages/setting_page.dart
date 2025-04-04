@@ -37,50 +37,57 @@ class SettingsPage extends ConsumerWidget {
                     AppTextStyle.size(24).bold.withColor(AppColorToken.golden),
               ),
             ),
-            32.verticalSpace,
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    32.verticalSpace,
 
-            // App Logo
-            Center(
-              child: Column(
-                children: [
-                  GradientAvatar(
-                    name: userData?.fullName ?? 'User',
-                    imageUrl: userData?.profileImageUrl,
-                    size: 60,
-                  ),
-                  16.verticalSpace,
-                  Text(
-                    userData?.fullName ?? 'User',
-                    style: AppTextStyle.size(18)
-                        .bold
-                        .withColor(AppColorToken.white),
-                  ),
-                  4.verticalSpace,
-                  Text(
-                    userData?.email ?? 'email@example.com',
-                    style: AppTextStyle.size(10)
-                        .regular
-                        .withColor(AppColorToken.white..color.withAlpha(70)),
-                  ),
-                ],
-              ),
-            ),
-            40.verticalSpace,
+                    // App Logo
+                    Center(
+                      child: Column(
+                        children: [
+                          GradientAvatar(
+                            name: userData?.fullName ?? 'User',
+                            imageUrl: userData?.profileImageUrl,
+                            size: 100,
+                          ),
+                          16.verticalSpace,
+                          Text(
+                            userData?.fullName ?? 'User',
+                            style: AppTextStyle.size(26)
+                                .bold
+                                .withColor(AppColorToken.white),
+                          ),
+                          4.verticalSpace,
+                          Text(
+                            userData?.email ?? 'email@example.com',
+                            style: AppTextStyle.size(14).regular.withColor(
+                                AppColorToken.white..color.withAlpha(70)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    40.verticalSpace,
 
-            // Settings Menu
-            ..._buildSettingsItems(context),
+                    // Settings Menu
+                    ..._buildSettingsItems(context),
 
-            // const Spacer(),
+                    // const Spacer(),
 
-            // Sign Out Button
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: AppButton(
-                text: 'SIGN OUT',
-                onPressed: () =>
-                    ref.read(authNotifierProvider.notifier).signOut(),
-                backgroundColor: AppColorToken.golden.value,
-                textColor: AppColorToken.black.value,
+                    // Sign Out Button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: AppButton(
+                        text: 'SIGN OUT',
+                        onPressed: () =>
+                            ref.read(authNotifierProvider.notifier).signOut(),
+                        backgroundColor: AppColorToken.golden.value,
+                        textColor: AppColorToken.black.value,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

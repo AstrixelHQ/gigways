@@ -232,6 +232,19 @@ class StrikeRepository {
           : 10; // Default to 10 if empty
     }
   }
+
+  Future<void> cancelStrike({
+    required String userId,
+    required String strikeId,
+  }) async {
+    try {
+      // Remove the strike from Firestore
+      await _firestore.collection('strikes').doc(strikeId).delete();
+    } catch (e) {
+      print('Error canceling strike: $e');
+      rethrow;
+    }
+  }
 }
 
 @Riverpod(keepAlive: true)

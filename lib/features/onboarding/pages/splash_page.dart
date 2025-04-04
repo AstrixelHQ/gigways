@@ -5,6 +5,7 @@ import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/routers/app_router.dart';
+import 'dart:math' show pi;
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({
@@ -46,14 +47,25 @@ class _SplashScreenState extends ConsumerState<SplashPage>
       ),
     ]).animate(_controller);
 
-    _rotateAnimation = Tween<double>(
-      begin: 0.0,
-      end: 2.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeInOut),
-    ))
-      ..addListener(() {});
+    // Modified rotation animation to complete full rotations and end at 0
+    _rotateAnimation = TweenSequence<double>([
+      // First do 1.5 rotations
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 3 * pi, // 1.5 complete rotations (3π radians)
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 70.0,
+      ),
+      // Then ease back to normal position (0 or 2π)
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 3 * pi,
+          end: 2 * pi, // End at exactly one full rotation (2π radians)
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 30.0,
+      ),
+    ]).animate(_controller);
 
     _opacityAnimation = TweenSequence<double>([
       TweenSequenceItem(

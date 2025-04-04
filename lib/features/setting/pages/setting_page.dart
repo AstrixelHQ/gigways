@@ -17,6 +17,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userData = ref.watch(authNotifierProvider).userData;
+    final size = MediaQuery.of(context).size;
 
     return ScaffoldWrapper(
       shouldShowGradient: true,
@@ -50,7 +51,7 @@ class SettingsPage extends ConsumerWidget {
                           GradientAvatar(
                             name: userData?.fullName ?? 'User',
                             imageUrl: userData?.profileImageUrl,
-                            size: 100,
+                            size: 120,
                           ),
                           16.verticalSpace,
                           Text(
@@ -77,11 +78,15 @@ class SettingsPage extends ConsumerWidget {
 
                     // Sign Out Button
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 20),
                       child: AppButton(
                         text: 'SIGN OUT',
-                        onPressed: () =>
-                            ref.read(authNotifierProvider.notifier).signOut(),
+                        width: size.width * 0.4,
+                        height: 50,
+                        onPressed: () {
+                          ref.read(authNotifierProvider.notifier).signOut();
+                          SplashRoute().go(context);
+                        },
                         backgroundColor: AppColorToken.golden.value,
                         textColor: AppColorToken.black.value,
                       ),

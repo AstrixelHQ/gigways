@@ -243,4 +243,57 @@ class StrikeNotifier extends _$StrikeNotifier {
   Future<void> refreshStrikeData() async {
     await _initializeStrikeData();
   }
+
+  Future<void> rescheduleStrike(DateTime newDate) async {
+    final authState = ref.read(authNotifierProvider);
+    if (authState.user == null || authState.userData == null) {
+      state = state.copyWith(
+        status: StrikeStatus.error,
+        errorMessage: 'User not authenticated',
+      );
+      return;
+    }
+
+    // Validate date is in the future
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (newDate.isBefore(today)) {
+      state = state.copyWith(
+        status: StrikeStatus.error,
+        errorMessage: 'Cannot schedule a strike for a past date',
+      );
+      return;
+    }
+
+    state = state.copyWith(status: StrikeStatus.loading);
+
+    try {
+      final userId = authState.user!.uid;
+
+      // Check if there's an existing strike to cancel
+      if (state.userStrike != null) {
+        // Cancel the existing strike
+        await _repository.cancelStrike(
+          userId: userId,
+          strikeId: state.userStrike!.id,
+        );
+      }
+
+      // Create a new strike
+      await _repository.createStrike(
+        userId: userId,
+        date: newDate,
+        state: authState.userData!.state!,
+        userName: authState.userData!.fullName,
+      );
+
+      // Refresh all data
+      await _initializeStrikeData();
+    } catch (e) {
+      state = state.copyWith(
+        status: StrikeStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
+  }
 }

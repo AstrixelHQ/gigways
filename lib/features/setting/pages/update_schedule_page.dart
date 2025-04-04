@@ -6,6 +6,7 @@ import 'package:gigways/core/theme/app_colors.dart';
 import 'package:gigways/core/theme/app_text_styles.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/app_snackbar.dart';
+import 'package:gigways/core/widgets/enhanced_time_picker.dart';
 import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/schedule/models/schedule_models.dart';
@@ -436,43 +437,70 @@ class _UpdateSchedulePageState extends ConsumerState<UpdateSchedulePage> {
     final defaultEnd =
         dayTimeRanges[day]?.end ?? const TimeOfDay(hour: 17, minute: 0);
 
-    final TimeRange? result = await showTimeRangePicker(
+    // Show dialog with enhanced time picker
+    await showDialog(
       context: context,
-      start: defaultStart,
-      end: defaultEnd,
-      use24HourFormat: false,
-      strokeColor: AppColorToken.golden.value,
-      handlerColor: AppColorToken.golden.value,
-      selectedColor: AppColorToken.golden.value,
-      backgroundColor: AppColorToken.black.value,
-      ticks: 24,
-      ticksColor: AppColorToken.white.value.withAlpha(50),
-      labels: ["12 am", "3 am", "6 am", "9 am", "12 pm", "3 pm", "6 pm", "9 pm"]
-          .asMap()
-          .entries
-          .map((e) {
-        return ClockLabel.fromIndex(idx: e.key, length: 8, text: e.value);
-      }).toList(),
-      labelOffset: 30,
-      rotateLabels: false,
-      padding: 60,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColorToken.black.value,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppColorToken.golden.value.withAlpha(30),
+          ),
+        ),
+        title: Text(
+          'Set Work Hours for $day',
+          style: AppTextStyle.size(18).medium.withColor(AppColorToken.golden),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EnhancedTimePicker(
+                initialStartTime: defaultStart,
+                initialEndTime: defaultEnd,
+                onTimeRangeSelected: (start, end) {
+                  setState(() {
+                    dayTimeRanges[day] = PickerTimeRange(
+                      start: start,
+                      end: end,
+                    );
+
+                    // Also update the notifier
+                    ref
+                        .read(scheduleNotifierProvider.notifier)
+                        .updateDaySchedule(
+                          day,
+                          start,
+                          end,
+                        );
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: Text(
+              'Cancel',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          TextButton(
+            child: Text(
+              'Done',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.golden),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
     );
-
-    if (result != null) {
-      setState(() {
-        dayTimeRanges[day] = PickerTimeRange(
-          start: result.startTime,
-          end: result.endTime,
-        );
-
-        // Also update the notifier
-        ref.read(scheduleNotifierProvider.notifier).updateDaySchedule(
-              day,
-              result.startTime,
-              result.endTime,
-            );
-      });
-    }
   }
 
   void _saveSchedule() {

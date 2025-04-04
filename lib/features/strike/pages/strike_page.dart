@@ -184,6 +184,9 @@ class _StrikePageState extends ConsumerState<StrikePage> {
             ],
           ),
           16.verticalSpace,
+
+          // Reschedule option - NEW ADDITION
+
           // Start Time
           Container(
             width: double.infinity,
@@ -199,6 +202,50 @@ class _StrikePageState extends ConsumerState<StrikePage> {
               textAlign: TextAlign.center,
             ),
           ),
+          16.verticalSpace,
+          if (strikeState.userStrike != null) ...[
+            Center(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedDate = DateTime.now();
+                    showCalendar = true;
+                  });
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColorToken.golden.value.withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColorToken.golden.value,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: AppColorToken.golden.value,
+                      ),
+                      8.horizontalSpace,
+                      Text(
+                        'Reschedule Strike',
+                        style: AppTextStyle.size(14)
+                            .medium
+                            .withColor(AppColorToken.golden),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            16.verticalSpace,
+          ],
+
           16.verticalSpace,
           // Participants Count - Only show if there are actual participants
           if (totalParticipants > 0)
@@ -230,22 +277,7 @@ class _StrikePageState extends ConsumerState<StrikePage> {
               style:
                   AppTextStyle.size(16).medium.withColor(AppColorToken.white),
             ),
-          24.verticalSpace,
-          // How To Strike Section
-          Text(
-            'How To Strike',
-            style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
-          ),
-          12.verticalSpace,
-          Text(
-            'Stay home, relax and enjoy family time!',
-            style: AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-          ),
-          8.verticalSpace,
-          Text(
-            'Share with others!',
-            style: AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-          ),
+          14.verticalSpace,
         ],
       ),
     );
@@ -420,6 +452,8 @@ class _StrikePageState extends ConsumerState<StrikePage> {
   }
 
   Widget _buildCalendarView(StrikeState strikeState) {
+    final isRescheduling = strikeState.userStrike != null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -433,7 +467,7 @@ class _StrikePageState extends ConsumerState<StrikePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Schedule Strike',
+            isRescheduling ? 'Reschedule Strike' : 'Schedule Strike',
             style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
           ),
           24.verticalSpace,
@@ -465,11 +499,17 @@ class _StrikePageState extends ConsumerState<StrikePage> {
               16.horizontalSpace,
               Expanded(
                 child: AppButton(
-                  text: 'Set Strike',
+                  text: isRescheduling ? 'Reschedule' : 'Set Strike',
                   onPressed: () {
-                    ref
-                        .read(strikeNotifierProvider.notifier)
-                        .scheduleStrike(selectedDate);
+                    if (isRescheduling) {
+                      ref
+                          .read(strikeNotifierProvider.notifier)
+                          .rescheduleStrike(selectedDate);
+                    } else {
+                      ref
+                          .read(strikeNotifierProvider.notifier)
+                          .scheduleStrike(selectedDate);
+                    }
                     setState(() {
                       showCalendar = false;
                     });

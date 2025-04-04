@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/utils/time_formatter.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:intl/intl.dart';
 
@@ -294,7 +295,8 @@ class _TrackerCardState extends State<TrackerCard>
               ),
               8.horizontalSpace,
               Text(
-                '${widget.trackerData.hours.toStringAsFixed(2)} hr',
+                TimeFormatter.formatDurationCompact(
+                    (widget.trackerData.hours * 3600).round()),
                 style:
                     AppTextStyle.size(16).medium.withColor(AppColorToken.white),
               ),

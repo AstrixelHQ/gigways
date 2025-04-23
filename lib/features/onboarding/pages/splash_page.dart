@@ -1,9 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/assets/assets.gen.dart';
 import 'package:gigways/core/constants/app_constant.dart';
+import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
+import 'package:gigways/features/dashboard/pages/dashboard_page.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'dart:math' show pi;
 
@@ -25,6 +29,9 @@ class _SplashScreenState extends ConsumerState<SplashPage>
   late Animation<double> _rotateAnimation;
   late Animation<double> _opacityAnimation;
   late Animation<double> _slideAnimation;
+  bool _isNavigating = false;
+
+  User? get user => FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -47,10 +54,9 @@ class _SplashScreenState extends ConsumerState<SplashPage>
       ),
     ]).animate(_controller);
 
-    // Modified rotation animation to end at a normal position
     _rotateAnimation = Tween<double>(
       begin: 0.0,
-      end: 2 * pi, // End at exactly one full rotation (2π radians)
+      end: 2 * pi,
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.0, 0.7, curve: Curves.easeInOut),
@@ -78,21 +84,59 @@ class _SplashScreenState extends ConsumerState<SplashPage>
     _startAnimation();
   }
 
-  Future<void> _startAnimation() async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    await _controller.forward();
-    await Future.delayed(const Duration(seconds: 1));
-    OnboardingRoute().pushReplacement(context);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Load user data after dependencies are set
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        ref.read(authNotifierProvider.notifier).loadUserData(user);
+      }
+    });
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  Future<void> _startAnimation() async {
+    if (!mounted) return;
+    await _controller.forward();
+  }
+
+  void _handleNavigation(AuthState state) {
+    if (!mounted) return;
+    if (_isNavigating) return;
+    _isNavigating = true;
+
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!mounted) return;
+
+      if (user != null) {
+        switch (state) {
+          case AuthState.authenticated:
+            HomeRoute().pushReplacement(context);
+            break;
+          case AuthState.unauthenticated:
+            OnboardingRoute().pushReplacement(context);
+            break;
+          case AuthState.error:
+            context.showErrorSnackbar('Something went wrong');
+            OnboardingRoute().pushReplacement(context);
+            break;
+          default:
+            OnboardingRoute().pushReplacement(context);
+        }
+      } else {
+        OnboardingRoute().pushReplacement(context);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authNotifierProvider, (previous, next) {
+      if (mounted) {
+        _handleNavigation(next.state);
+      }
+    });
+
     return ScaffoldWrapper(
       shouldShowGradient: true,
       body: AnimatedBuilder(
@@ -160,7 +204,10 @@ class _SplashScreenState extends ConsumerState<SplashPage>
                     ),
                     const SizedBox(height: 40),
                     Transform.translate(
-                      offset: Offset(0, _slideAnimation.value),
+                      offset: Offset(
+                          0,
+                          _slideAnimation.value *
+                              (1 - _opacityAnimation.value)),
                       child: Opacity(
                         opacity: _opacityAnimation.value,
                         child: Column(
@@ -190,5 +237,11 @@ class _SplashScreenState extends ConsumerState<SplashPage>
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

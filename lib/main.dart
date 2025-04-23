@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/services/activity_service.dart';
 import 'package:gigways/core/services/notification_service.dart';
+import 'package:gigways/core/services/permission_service.dart';
 import 'package:gigways/core/utils/ui_utils.dart';
 import 'package:gigways/firebase_options.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 Future<void> main() async {
   await initilizer(() => const App());
@@ -18,16 +18,17 @@ Future<void> main() async {
 FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  ActivityService().start();
-
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Request location permissions
-  await Permission.location.request();
-  await Permission.activityRecognition.request();
+  final permissionService = PermissionService();
+  final permissionStatus = await permissionService.getPermissionStatus();
+
+  if (permissionStatus[AppPermission.location] == true ||
+      permissionStatus[AppPermission.activityRecognition] == true) {
+    await ActivityService().start();
+  }
 
   await NotificationService().initialize();
   runApp(
@@ -42,7 +43,7 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final _router = ref.watch(appRouterProvider);
+    final _router = ref.read(appRouterProvider);
 
     return MaterialApp.router(
       title: AppConstant.appName,

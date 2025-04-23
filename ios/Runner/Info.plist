@@ -52,7 +52,7 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Location Permission is required for determining your status of the ride.</string>
     <key>NSMotionUsageDescription</key>
-    <string>Used to recognize user activity information.</string>
+    <string>Motion Permission is required for determining your status of the ride.</string>
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
     <key>UIBackgroundModes</key>

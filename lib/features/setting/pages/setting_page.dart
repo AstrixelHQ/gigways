@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
@@ -49,13 +50,13 @@ class SettingsPage extends ConsumerWidget {
                       child: Column(
                         children: [
                           GradientAvatar(
-                            name: userData?.fullName ?? 'User',
+                            name: userData?.fullName ?? '',
                             imageUrl: userData?.profileImageUrl,
                             size: 120,
                           ),
                           16.verticalSpace,
                           Text(
-                            userData?.fullName ?? 'User',
+                            userData?.fullName ?? '',
                             style: AppTextStyle.size(26)
                                 .bold
                                 .withColor(AppColorToken.white),
@@ -83,10 +84,7 @@ class SettingsPage extends ConsumerWidget {
                         text: 'SIGN OUT',
                         width: size.width * 0.4,
                         height: 50,
-                        onPressed: () {
-                          ref.read(authNotifierProvider.notifier).signOut();
-                          SplashRoute().go(context);
-                        },
+                        onPressed: () => _showLogoutConfirmation(context, ref),
                         backgroundColor: AppColorToken.golden.value,
                         textColor: AppColorToken.black.value,
                       ),
@@ -149,5 +147,44 @@ class SettingsPage extends ConsumerWidget {
         ),
       );
     }).toList();
+  }
+
+  void _showLogoutConfirmation(BuildContext context, WidgetRef ref) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(
+          'Logout',
+          style: AppTextStyle.size(20).bold.withColor(AppColorToken.white),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: AppTextStyle.size(16).regular.withColor(AppColorToken.white),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(
+              'Cancel',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: Text(
+              'Logout',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.golden),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(authNotifierProvider.notifier).signOut();
+              SplashRoute().go(context);
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

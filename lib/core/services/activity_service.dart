@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
-import 'package:permission_handler/permission_handler.dart';
 
 class ActivityService with WidgetsBindingObserver {
   // Singleton instance (optional)
@@ -13,6 +12,7 @@ class ActivityService with WidgetsBindingObserver {
 
   // Activity Recognition instance and its data
   final ActivityRecognition _activityRecognition = ActivityRecognition();
+
   StreamSubscription<ActivityEvent>? _activitySubscription;
   ActivityEvent? currentActivity;
 
@@ -79,89 +79,16 @@ class ActivityService with WidgetsBindingObserver {
     bg.BackgroundGeolocation.ready(bg.Config(
       desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
       distanceFilter: 50.0,
-      stopOnTerminate: false, // Continue tracking if the app is killed.
-      startOnBoot: true, // Restart tracking on device boot.
-      debug: false, // Set to true for debugging.
-      logLevel: bg.Config.LOG_LEVEL_OFF,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      debug: true,
+      logLevel: bg.Config.LOG_LEVEL_VERBOSE,
     )).then((bg.State state) {
       if (!state.enabled) {
         bg.BackgroundGeolocation.start();
       }
       print('[BackgroundGeolocation] enabled: ${state.enabled}');
     });
-  }
-
-  /// Requests location permission by showing a bottom sheet as per platform guidelines.
-  /// Returns `true` if permission is granted, otherwise `false`.
-  Future<bool> requestLocationPermission(BuildContext context) async {
-    // Show bottom sheet to explain why we need location permission.
-    bool userAccepted = await _showLocationPermissionSheet(context);
-    if (!userAccepted) {
-      return false;
-    }
-
-    // Request foreground location permission.
-    PermissionStatus status = await Permission.location.request();
-    if (!status.isGranted) {
-      print("Foreground location permission not granted.");
-      return false;
-    }
-
-    // For continuous background tracking, request background location permission.
-    PermissionStatus backgroundStatus =
-        await Permission.locationAlways.request();
-    if (!backgroundStatus.isGranted) {
-      print("Background location permission not granted.");
-      return false;
-    }
-    return true;
-  }
-
-  /// Displays a bottom sheet explaining the need for location permission.
-  /// Returns a [Future<bool>] that resolves to true if the user chooses to allow, false otherwise.
-  Future<bool> _showLocationPermissionSheet(BuildContext context) async {
-    return (await showModalBottomSheet<bool>(
-          context: context,
-          isDismissible: false,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (BuildContext bc) {
-            return Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Location Permission Required",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "This app needs location access to detect your activity even when running in the background. "
-                    "Please allow location access so that we can provide the best experience.",
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(bc, true);
-                    },
-                    child: Text("Allow Permission"),
-                  ),
-                  SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(bc, false);
-                    },
-                    child: Text("Cancel"),
-                  ),
-                ],
-              ),
-            );
-          },
-        )) ??
-        false;
   }
 
   // Listen to app lifecycle state changes.
@@ -176,7 +103,6 @@ class ActivityService with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _activitySubscription?.cancel();
-    // Uncomment the following line if you wish to stop background tracking when disposing.
     bg.BackgroundGeolocation.stop();
   }
 }

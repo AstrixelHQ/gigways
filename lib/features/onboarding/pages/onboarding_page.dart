@@ -7,7 +7,6 @@ import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
-import 'package:gigways/features/auth/widgets/state_selection_sheet.dart';
 import 'package:gigways/routers/app_router.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -21,36 +20,43 @@ class OnboardingPage extends ConsumerStatefulWidget {
 
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   @override
-  void didChangeDependencies() {
+  void initState() {
+    super.initState();
+    // Listen to auth changes after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authNotifierProvider.notifier).listenToAuthChanges();
     });
-    super.didChangeDependencies();
   }
 
   @override
   Widget build(BuildContext context) {
     // Listen to auth state changes
     ref.listen(authNotifierProvider, (previous, current) {
-      if (current.state == AuthState.needsState) {
-        // Show state selection sheet
-        _showStateSelectionSheet();
-      } else if (current.state == AuthState.authenticated) {
-        // Navigate to home page
-        HomeRoute().go(context);
-      } else if (current.state == AuthState.error) {
-        // Show error snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${current.errorMessage}',
-              style:
-                  AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+      if (!mounted) return;
+
+      switch (current.state) {
+        case AuthState.needsState:
+          StateSelectionRoute().go(context);
+          break;
+        case AuthState.authenticated:
+          HomeRoute().go(context);
+          break;
+        case AuthState.error:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error: ${current.errorMessage}',
+                style: AppTextStyle.size(14)
+                    .regular
+                    .withColor(AppColorToken.white),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+          break;
+        default:
+          break;
       }
     });
 
@@ -166,22 +172,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showStateSelectionSheet() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StateSelectionSheet(
-        onCompleted: () {
-          Navigator.pop(context);
-          HomeRoute().go(context);
-        },
       ),
     );
   }

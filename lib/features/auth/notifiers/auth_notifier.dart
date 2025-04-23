@@ -50,27 +50,16 @@ class AuthData {
 
 @Riverpod(keepAlive: true)
 class AuthNotifier extends _$AuthNotifier {
-  late final FirebaseAuth _auth;
-  late final UserRepository _userRepository;
-
-  // Add a stream controller to expose state changes as a stream
-  final _controller = StreamController<AuthData>.broadcast();
-  Stream<AuthData> get _stream => _controller.stream;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  UserRepository get _userRepository => ref.read(userRepositoryProvider);
 
   @override
   AuthData build() {
-    _auth = FirebaseAuth.instance;
-    _userRepository = ref.read(userRepositoryProvider);
-
     // Check if user is already logged in
     final currentUser = _auth.currentUser;
     if (currentUser != null) {
-      _loadUserData(currentUser);
+      loadUserData(currentUser);
     }
-
-    // ref.onDispose(() {
-    //   _controller.close();
-    // });
 
     return AuthData(
       state:
@@ -85,19 +74,22 @@ class AuthNotifier extends _$AuthNotifier {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (user == null) {
           state = state.copyWith(state: AuthState.unauthenticated);
-          _controller.add(state);
         } else {
-          _loadUserData(user);
+          loadUserData(user);
         }
       });
     });
   }
 
   // Load user data from Firestore
-  Future<void> _loadUserData(User user) async {
+  Future<void> loadUserData(User? user) async {
     await SchedulerBinding.instance.endOfFrame;
+    if (user == null) {
+      state = state.copyWith(state: AuthState.unauthenticated);
+      return;
+    }
+
     state = state.copyWith(state: AuthState.loading, user: user);
-    _controller.add(state);
 
     try {
       final userData = await _userRepository.getUser(user.uid);
@@ -105,9 +97,8 @@ class AuthNotifier extends _$AuthNotifier {
       if (userData == null) {
         state = state.copyWith(
           state: AuthState.error,
-          errorMessage: 'User data not found',
+          errorMessage: null,
         );
-        _controller.add(state);
         return;
       }
 
@@ -123,20 +114,17 @@ class AuthNotifier extends _$AuthNotifier {
           userData: userData,
         );
       }
-      _controller.add(state);
     } catch (e) {
       state = state.copyWith(
         state: AuthState.error,
         errorMessage: e.toString(),
       );
-      _controller.add(state);
     }
   }
 
   // Sign in with Google
   Future<void> signInWithGoogle() async {
     state = state.copyWith(state: AuthState.loading);
-    _controller.add(state);
 
     try {
       // Start the sign-in flow
@@ -144,7 +132,6 @@ class AuthNotifier extends _$AuthNotifier {
 
       if (googleUser == null) {
         state = state.copyWith(state: AuthState.unauthenticated);
-        _controller.add(state);
         return;
       }
 
@@ -168,23 +155,21 @@ class AuthNotifier extends _$AuthNotifier {
 
       await _handleUserSignIn(
         user,
-        name: user.displayName,
-        email: user.email,
-        photoUrl: user.photoURL,
+        name: googleUser.displayName,
+        email: googleUser.email,
+        photoUrl: googleUser.photoUrl,
       );
     } catch (e) {
       state = state.copyWith(
         state: AuthState.error,
         errorMessage: e.toString(),
       );
-      _controller.add(state);
     }
   }
 
   // Sign in with Facebook
   Future<void> signInWithFacebook() async {
     state = state.copyWith(state: AuthState.loading);
-    _controller.add(state);
 
     try {
       // Trigger the sign-in flow
@@ -221,14 +206,12 @@ class AuthNotifier extends _$AuthNotifier {
         state: AuthState.error,
         errorMessage: e.toString(),
       );
-      _controller.add(state);
     }
   }
 
   // Sign in with Apple
   Future<void> signInWithApple() async {
     state = state.copyWith(state: AuthState.loading);
-    _controller.add(state);
 
     try {
       final credential = await SignInWithApple.getAppleIDCredential(
@@ -266,7 +249,6 @@ class AuthNotifier extends _$AuthNotifier {
         state: AuthState.error,
         errorMessage: 'Failed to sign in with Apple',
       );
-      _controller.add(state);
     }
   }
 
@@ -298,17 +280,15 @@ class AuthNotifier extends _$AuthNotifier {
           user: user,
           userData: newUser,
         );
-        _controller.add(state);
       } else {
         // User exists, load their data
-        await _loadUserData(user);
+        await loadUserData(user);
       }
     } catch (e) {
       state = state.copyWith(
         state: AuthState.error,
         errorMessage: e.toString(),
       );
-      _controller.add(state);
     }
   }
 
@@ -329,7 +309,6 @@ class AuthNotifier extends _$AuthNotifier {
           state: AuthState.authenticated,
           userData: updatedUserData,
         );
-    _controller.add(this.state);
   }
 
   // Sign out
@@ -340,13 +319,11 @@ class AuthNotifier extends _$AuthNotifier {
       await FacebookAuth.instance.logOut();
 
       state = AuthData(state: AuthState.unauthenticated);
-      _controller.add(state);
     } catch (e) {
       state = state.copyWith(
         state: AuthState.error,
         errorMessage: e.toString(),
       );
-      _controller.add(state);
     }
   }
 
@@ -355,6 +332,5 @@ class AuthNotifier extends _$AuthNotifier {
     state = state.copyWith(
       userData: userData,
     );
-    _controller.add(state);
   }
 }

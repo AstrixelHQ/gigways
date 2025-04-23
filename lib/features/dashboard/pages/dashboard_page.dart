@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:gigways/core/services/activity_service.dart';
+import 'package:gigways/core/services/motion_permission.dart';
+import 'package:gigways/core/services/permission_service.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({
@@ -20,16 +23,29 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      () async {
-        bool permissionGranted =
-            await ActivityService().requestLocationPermission(context);
-        if (permissionGranted) {
-          ActivityService().start();
-        }
-      }();
-    });
     super.initState();
+    // Request permissions after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestAppPermissions();
+    });
+  }
+
+  Future<void> _requestAppPermissions() async {
+    // Request permissions sequentially with proper explanation sheets
+    final permissionService = PermissionService();
+
+    // Check which permissions are already granted
+    final permissionStatus = await permissionService.getPermissionStatus();
+
+    // If not all permissions are granted, show the flow
+    if (permissionStatus.values.contains(false)) {
+      await permissionService.requestPermissions(context);
+    }
+
+    if (permissionStatus[AppPermission.activityRecognition] == true ||
+        permissionStatus[AppPermission.location] == true) {
+      ActivityService().start();
+    }
   }
 
   @override

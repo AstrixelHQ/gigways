@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/auth/pages/pages.dart';
+import 'package:gigways/features/auth/pages/state_selection_page.dart';
 import 'package:gigways/features/community/models/post_model.dart';
 import 'package:gigways/features/dashboard/pages/pages.dart';
 import 'package:gigways/features/home/pages/pages.dart';
@@ -10,69 +11,15 @@ import 'package:gigways/features/setting/models/policy_model.dart';
 import 'package:gigways/features/setting/pages/pages.dart';
 import 'package:gigways/features/strike/pages/pages.dart';
 import 'package:gigways/features/community/pages/pages.dart';
-import 'package:gigways/routers/auth_router_helper.dart';
 import 'package:go_router/go_router.dart';
 
 part 'app_router.g.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // final authState = ref.watch(authNotifierProvider);
-
   return GoRouter(
-    // refreshListenable:
-    //     GoRouterRefreshStream(ref.read(authNotifierProvider.notifier).stream),
     initialLocation: SplashPage.path,
     routes: $appRoutes,
     debugLogDiagnostics: true,
-    // redirect: (context, state) {
-    // Get the current auth state
-    // final isAuthenticated = authState.state == AuthState.authenticated;
-    // final needsState = authState.state == AuthState.needsState;
-    // final isLoading = authState.state == AuthState.loading ||
-    //     authState.state == AuthState.initial;
-
-    // // Current path
-    // final currentPath = state.matchedLocation;
-
-    // // Paths that don't require authentication
-    // final noAuthPaths = [SplashPage.path, OnboardingPage.path];
-
-    // // If the auth state is still loading, allow current navigation
-    // if (isLoading) {
-    //   return null;
-    // }
-
-    // // If user is authenticated
-    // if (isAuthenticated) {
-    //   // If they're trying to access login or onboarding, redirect to home
-    //   if (noAuthPaths.contains(currentPath)) {
-    //     return HomePage.path;
-    //   }
-
-    //   // Otherwise allow navigation
-    //   return null;
-    // }
-
-    // // If user needs to select a state
-    // if (needsState) {
-    //   // Allow them to be on the onboarding page
-    //   if (currentPath == OnboardingPage.path) {
-    //     return null;
-    //   }
-
-    //   // Redirect to onboarding for state selection
-    //   return OnboardingPage.path;
-    // }
-
-    // // If not authenticated, allow access to non-auth paths
-    // if (noAuthPaths.contains(currentPath)) {
-    //   return null;
-    // }
-
-    // // Otherwise redirect to onboarding
-    // return OnboardingPage.path;
-
-    // },
   );
 });
 
@@ -156,6 +103,16 @@ class SettingsRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return const SettingsPage();
+  }
+}
+
+@TypedGoRoute<StateSelectionRoute>(path: StateSelectionPage.path)
+class StateSelectionRoute extends GoRouteData {
+  const StateSelectionRoute();
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const StateSelectionPage();
   }
 }
 

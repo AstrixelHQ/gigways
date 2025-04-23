@@ -27,9 +27,7 @@ class LoadingOverlay extends StatelessWidget {
               color: backgroundColor ??
                   AppColorToken.lightDark.color.withOpacity(0.9),
               child: Center(
-                child: Assets.lottie.loading.lottie(
-
-                ),
+                child: Assets.lottie.loading.lottie(),
               ),
             ),
           ),

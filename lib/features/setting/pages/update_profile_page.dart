@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gigways/core/widgets/type_ahead_field.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gigways/core/constants/state_constant.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
@@ -38,6 +39,9 @@ class UpdateProfilePage extends HookConsumerWidget {
         useTextEditingController(text: userData?.email ?? '');
     final phoneController =
         useTextEditingController(text: userData?.phoneNumber ?? '');
+    final _stateController = useTextEditingController(
+      text: userData?.state ?? '',
+    );
 
     // Phone number formatter
     final phoneFormatter = MaskTextInputFormatter(
@@ -206,7 +210,6 @@ class UpdateProfilePage extends HookConsumerWidget {
                         if (value?.isNotEmpty ?? false) {
                           // Check if the phone number is complete
                           if (value!.length < 14) {
-                            // (XXX) XXX-XXXX = 14 characters
                             return 'Enter a complete phone number';
                           }
                         }
@@ -224,73 +227,22 @@ class UpdateProfilePage extends HookConsumerWidget {
                     ),
                     24.verticalSpace,
 
-                    // State Selection
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'State',
-                          style: AppTextStyle.size(14)
-                              .medium
+                    AppTypeAheadField<String>(
+                      controller: _stateController,
+                      hintText: 'Search your state',
+                      items: StateConstant.usStates,
+                      itemToString: (state) => state,
+                      itemBuilder: (context, state) => ListTile(
+                        title: Text(
+                          state,
+                          style: AppTextStyle.size(16)
+                              .regular
                               .withColor(AppColorToken.white),
                         ),
-                        8.verticalSpace,
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColorToken.black.value.withAlpha(30),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColorToken.white.value.withAlpha(30),
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButtonFormField<String>(
-                              value: selectedState.value,
-                              hint: Text(
-                                'Select your state',
-                                style: AppTextStyle.size(16).regular.withColor(
-                                    AppColorToken.white..color.withAlpha(50)),
-                              ),
-                              items: StateConstant.usStates.map((String state) {
-                                return DropdownMenuItem<String>(
-                                  value: state,
-                                  child: Text(
-                                    state,
-                                    style: AppTextStyle.size(16)
-                                        .regular
-                                        .withColor(AppColorToken.white),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (String? value) {
-                                selectedState.value = value;
-                              },
-                              validator: (value) {
-                                if (value == null) {
-                                  return 'Please select a state';
-                                }
-                                return null;
-                              },
-                              dropdownColor: AppColorToken.black.value,
-                              icon: Icon(
-                                Icons.arrow_drop_down,
-                                color: AppColorToken.golden.value,
-                              ),
-                              decoration: InputDecoration(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                border: InputBorder.none,
-                                prefixIcon: Icon(
-                                  Icons.location_on_outlined,
-                                  color: AppColorToken.golden.value,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
+                      onSelected: (value) {
+                        selectedState.value = value;
+                      },
                     ),
                     40.verticalSpace,
 
@@ -299,7 +251,7 @@ class UpdateProfilePage extends HookConsumerWidget {
                       text: 'Update Profile',
                       onPressed: handleSubmit,
                     ),
-                    24.verticalSpace,
+                    90.verticalSpace,
                   ],
                 ),
               ),

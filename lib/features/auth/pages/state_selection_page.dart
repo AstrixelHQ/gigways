@@ -5,13 +5,13 @@ import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/core/widgets/type_ahead_field.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
 
-import 'package:flutter_typeahead/flutter_typeahead.dart';
-
 class StateSelectionPage extends ConsumerStatefulWidget {
   const StateSelectionPage({super.key});
+
   static const String path = '/state-selection';
 
   @override
@@ -21,8 +21,6 @@ class StateSelectionPage extends ConsumerStatefulWidget {
 class _StateSelectionPageState extends ConsumerState<StateSelectionPage> {
   String? selectedState;
   bool isLoading = false;
-
-  // controller for the text‐field
   final TextEditingController _typeAheadController = TextEditingController();
 
   @override
@@ -66,68 +64,22 @@ class _StateSelectionPageState extends ConsumerState<StateSelectionPage> {
               ),
               32.verticalSpace,
 
-              TypeAheadField<String>(
+              AppTypeAheadField<String>(
                 controller: _typeAheadController,
-                builder: (context, controller, focusNode) {
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
+                hintText: 'Search your state',
+                items: StateConstant.usStates,
+                itemToString: (state) => state,
+                itemBuilder: (context, state) => ListTile(
+                  title: Text(
+                    state,
                     style: AppTextStyle.size(16)
                         .regular
                         .withColor(AppColorToken.white),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColorToken.black.value.withAlpha(50),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      hintText: 'Search your state',
-                      hintStyle: AppTextStyle.size(16).regular.withColor(
-                            AppColorToken.white..color.withAlpha(50),
-                          ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: AppColorToken.white.value.withAlpha(30),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: AppColorToken.white.value.withAlpha(30),
-                        ),
-                      ),
-                      suffixIcon: Icon(Icons.arrow_drop_down),
-                    ),
-                    onTap: () {
-                      focusNode.requestFocus();
-                    },
-                  );
-                },
-                showOnFocus: true,
-                hideKeyboardOnDrag: true,
-                hideOnEmpty: true,
-                suggestionsCallback: (pattern) async {
-                  return StateConstant.usStates
-                      .where((s) =>
-                          s.toLowerCase().contains(pattern.toLowerCase()))
-                      .toList();
-                },
-                itemBuilder: (context, String suggestion) {
-                  return ListTile(
-                    title: Text(
-                      suggestion,
-                      style: AppTextStyle.size(16)
-                          .regular
-                          .withColor(AppColorToken.white),
-                    ),
-                  );
-                },
-                onSelected: (String value) {
-                  _typeAheadController.text = value;
-                  FocusScope.of(context).unfocus();
+                  ),
+                ),
+                onSelected: (value) {
                   setState(() => selectedState = value);
                 },
-                hideWithKeyboard: true,
               ),
 
               const Spacer(),

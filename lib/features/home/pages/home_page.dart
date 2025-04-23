@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
-import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
@@ -10,7 +9,6 @@ import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
-import 'package:intl/intl.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});

@@ -252,3 +252,21 @@ extension BreakNotifications on NotificationService {
     );
   }
 }
+
+extension DrivingDetectionNotifications on NotificationService {
+  Future<void> showDrivingDetected() async {
+    await show(
+      NotificationData(
+        id: 2001,
+        title: 'Driving Detected',
+        body:
+            'We noticed you may be driving. Would you like to start tracking?',
+        channel: NotificationChannel.driving,
+        ongoing: false,
+        autoCancel: true,
+        color: Colors.blue,
+        payload: 'driving_detected',
+      ),
+    );
+  }
+}

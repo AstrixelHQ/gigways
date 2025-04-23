@@ -39,7 +39,7 @@ class TrackingState {
     this.currentLocations = const [],
     this.todayInsights,
     this.weeklyInsights,
-    this.monthlyInsights, 
+    this.monthlyInsights,
     this.yearlyInsights,
     this.selectedInsightPeriod = 'Today',
     this.drivingNow = 4000, // Default mock value
@@ -68,7 +68,8 @@ class TrackingState {
       weeklyInsights: weeklyInsights ?? this.weeklyInsights,
       monthlyInsights: monthlyInsights ?? this.monthlyInsights,
       yearlyInsights: yearlyInsights ?? this.yearlyInsights,
-      selectedInsightPeriod: selectedInsightPeriod ?? this.selectedInsightPeriod,
+      selectedInsightPeriod:
+          selectedInsightPeriod ?? this.selectedInsightPeriod,
       drivingNow: drivingNow ?? this.drivingNow,
       totalDrivers: totalDrivers ?? this.totalDrivers,
     );
@@ -111,8 +112,15 @@ class TrackingNotifier extends _$TrackingNotifier {
 
     // Initialize tracking state
     _initializeTrackingState();
-    
+
     return TrackingState();
+  }
+
+  void handleNotificationTap(String? payload) {
+    if (payload == 'driving_detected') {
+      // Auto-start tracking when notification is tapped
+      startTracking();
+    }
   }
 
   // Initialize tracking state
@@ -144,7 +152,9 @@ class TrackingNotifier extends _$TrackingNotifier {
       await refreshInsights();
 
       state = state.copyWith(
-        status: activeSession != null ? TrackingStatus.active : TrackingStatus.inactive,
+        status: activeSession != null
+            ? TrackingStatus.active
+            : TrackingStatus.inactive,
         activeSession: activeSession,
       );
     } catch (e) {
@@ -176,7 +186,7 @@ class TrackingNotifier extends _$TrackingNotifier {
       }
 
       final userId = authState.user!.uid;
-      
+
       // Start a new session in the repository
       final session = await _repository.startSession(
         userId: userId,
@@ -185,7 +195,8 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Set up location subscription
       _locationSubscription?.cancel();
-      _locationSubscription = _locationService.locationStream.listen(_handleLocationUpdate);
+      _locationSubscription =
+          _locationService.locationStream.listen(_handleLocationUpdate);
 
       // Set up tracking timer for duration
       _trackingStartTime = DateTime.now();
@@ -213,10 +224,12 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Set up location subscription
       _locationSubscription?.cancel();
-      _locationSubscription = _locationService.locationStream.listen(_handleLocationUpdate);
+      _locationSubscription =
+          _locationService.locationStream.listen(_handleLocationUpdate);
 
       // Set up tracking timer for duration
-      _trackingStartTime = DateTime.now().subtract(Duration(seconds: session.durationInSeconds));
+      _trackingStartTime =
+          DateTime.now().subtract(Duration(seconds: session.durationInSeconds));
       _locationPoints = session.locations;
       _setupTrackingTimer();
 
@@ -252,7 +265,8 @@ class TrackingNotifier extends _$TrackingNotifier {
     final miles = LocationService.calculateTotalDistance(_locationPoints);
 
     // Calculate duration
-    final durationInSeconds = DateTime.now().difference(_trackingStartTime!).inSeconds;
+    final durationInSeconds =
+        DateTime.now().difference(_trackingStartTime!).inSeconds;
 
     try {
       // Update session in repository
@@ -277,12 +291,15 @@ class TrackingNotifier extends _$TrackingNotifier {
   void _setupTrackingTimer() {
     _trackingTimer?.cancel();
     _trackingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.status != TrackingStatus.active || state.activeSession == null || _trackingStartTime == null) {
+      if (state.status != TrackingStatus.active ||
+          state.activeSession == null ||
+          _trackingStartTime == null) {
         return;
       }
 
-      final durationInSeconds = DateTime.now().difference(_trackingStartTime!).inSeconds;
-      
+      final durationInSeconds =
+          DateTime.now().difference(_trackingStartTime!).inSeconds;
+
       // Update state with new duration
       state = state.copyWith(
         activeSession: state.activeSession!.copyWith(
@@ -309,7 +326,7 @@ class TrackingNotifier extends _$TrackingNotifier {
 
     // Stop location tracking
     await _locationService.stopTracking();
-    
+
     // Cancel timer and subscription
     _trackingTimer?.cancel();
     _locationSubscription?.cancel();

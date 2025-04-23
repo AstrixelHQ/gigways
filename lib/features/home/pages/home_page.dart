@@ -6,6 +6,7 @@ import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
+import 'package:gigways/features/tracking/controllers/tracker_controller.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
@@ -80,16 +81,20 @@ class HomePage extends ConsumerWidget {
                   totalDrivers: trackingState.totalDrivers,
                   onTrackerToggled: (enabled) {
                     if (enabled) {
-                      trackingNotifier.startTracking();
+                      ref
+                          .read(trackerControllerProvider.notifier)
+                          .startTracking();
                     } else {
-                      trackingNotifier.stopTracking();
+                      ref
+                          .read(trackerControllerProvider.notifier)
+                          .stopTracking();
                     }
                   },
                   onShiftEnded: (earnings, expenses) {
-                    trackingNotifier.endShift(
-                      earnings: earnings,
-                      expenses: expenses,
-                    );
+                    ref.read(trackerControllerProvider.notifier).endShift(
+                          earnings: earnings,
+                          expenses: expenses,
+                        );
                   },
                 ),
                 24.verticalSpace,

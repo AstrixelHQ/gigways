@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
@@ -30,7 +31,10 @@ FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
     await ActivityService().start();
   }
 
-  await NotificationService().initialize();
+  if (permissionStatus[AppPermission.notification] == true) {
+    await NotificationService().initialize();
+  }
+
   runApp(
     ProviderScope(
       child: await builder(),

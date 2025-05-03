@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/repositories/tracking_repository.dart';
 import 'package:gigways/features/tracking/services/location_service.dart';
+import 'package:gigways/core/services/notification_service.dart';
+import 'package:gigways/core/services/activity_recognition_service.dart';
+import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 
 part 'tracking_notifier.g.dart';
 
@@ -95,12 +100,22 @@ class TrackingState {
 @Riverpod(keepAlive: true)
 class TrackingNotifier extends _$TrackingNotifier {
   Timer? _trackingTimer;
+  Timer? _inactivityTimer;
   StreamSubscription? _locationSubscription;
+  StreamSubscription? _appLifecycleSubscription;
+  StreamSubscription? _activitySubscription;
   DateTime? _trackingStartTime;
   List<LocationPoint> _locationPoints = [];
+  bool _isHandlingClosure = false;
+  ActivityType? _lastActivityType;
+  DateTime? _lastActivityChangeTime;
 
   TrackingRepository get _repository => ref.read(trackingRepositoryProvider);
   LocationService get _locationService => ref.read(locationServiceProvider);
+  NotificationService get _notificationService =>
+      ref.read(notificationServiceProvider);
+  ActivityRecognitionService get _activityService =>
+      ref.read(activityRecognitionServiceProvider);
 
   @override
   TrackingState build() {
@@ -108,12 +123,75 @@ class TrackingNotifier extends _$TrackingNotifier {
     ref.onDispose(() {
       _trackingTimer?.cancel();
       _locationSubscription?.cancel();
+      _appLifecycleSubscription?.cancel();
+      _activitySubscription?.cancel();
+      _inactivityTimer?.cancel();
     });
 
     // Initialize tracking state
     _initializeTrackingState();
+    _setupAppLifecycleListener();
 
     return TrackingState();
+  }
+
+  void _setupAppLifecycleListener() {
+    _appLifecycleSubscription?.cancel();
+    SystemChannels.lifecycle.setMessageHandler((msg) async {
+      if (msg == AppLifecycleState.inactive.toString()) {
+        if (state.status == TrackingStatus.active && !_isHandlingClosure) {
+          _isHandlingClosure = true;
+          await _handleAppClosure();
+          _isHandlingClosure = false;
+        }
+      }
+      return null;
+    });
+  }
+
+  Future<void> _handleAppClosure() async {
+    if (state.activeSession == null) return;
+
+    final authState = ref.read(authNotifierProvider);
+    if (authState.user == null) return;
+
+    try {
+      // Stop tracking
+      await _locationService.stopTracking();
+      _trackingTimer?.cancel();
+      _locationSubscription?.cancel();
+
+      // End session in repository
+      await _repository.endSession(
+        userId: authState.user!.uid,
+        sessionId: state.activeSession!.id,
+        endTime: DateTime.now(),
+      );
+
+      // Send notification
+      await _notificationService.show(
+        NotificationData(
+          title: 'Tracker Stopped',
+          body:
+              'Your tracker was active and has been stopped since the app was closed.',
+          channel: NotificationChannel.system,
+          ongoing: false,
+          autoCancel: true,
+        ),
+      );
+
+      // Update state
+      state = state.copyWith(
+        status: TrackingStatus.inactive,
+        activeSession: null,
+        currentLocations: [],
+      );
+
+      // Refresh insights
+      await refreshInsights();
+    } catch (e) {
+      print('Error handling app closure: $e');
+    }
   }
 
   void handleNotificationTap(String? payload) {
@@ -197,6 +275,9 @@ class TrackingNotifier extends _$TrackingNotifier {
       _locationSubscription?.cancel();
       _locationSubscription =
           _locationService.locationStream.listen(_handleLocationUpdate);
+
+      // Set up activity recognition
+      _setupActivityRecognition();
 
       // Set up tracking timer for duration
       _trackingStartTime = DateTime.now();
@@ -425,5 +506,56 @@ class TrackingNotifier extends _$TrackingNotifier {
   // Change selected insight period
   void setInsightPeriod(String period) {
     state = state.copyWith(selectedInsightPeriod: period);
+  }
+
+  void _setupActivityRecognition() {
+    _activitySubscription?.cancel();
+    _activityService.initialize();
+    _activitySubscription =
+        _activityService.activityStream.listen(_handleActivityChange);
+  }
+
+  void _handleActivityChange(ActivityEvent event) {
+    if (state.status != TrackingStatus.active) return;
+
+    final now = DateTime.now();
+    _lastActivityType = event.type;
+    _lastActivityChangeTime = now;
+
+    // Handle driving detection
+    if (event.type == ActivityType.IN_VEHICLE) {
+      _notificationService.show(
+        NotificationData(
+          title: 'Driving Detected',
+          body: 'You are currently driving. Stay safe!',
+          channel: NotificationChannel.driving,
+          ongoing: true,
+          autoCancel: false,
+          payload: 'driving_detected',
+        ),
+      );
+    }
+
+    // Handle inactivity
+    _resetInactivityTimer();
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(const Duration(minutes: 15), () {
+      if (state.status == TrackingStatus.active &&
+          (_lastActivityType == ActivityType.STILL ||
+              _lastActivityType == ActivityType.UNKNOWN)) {
+        _notificationService.show(
+          NotificationData(
+            title: 'Inactivity Detected',
+            body:
+                'You have been inactive for 15 minutes. Would you like to stop tracking?',
+            channel: NotificationChannel.system,
+            payload: 'inactivity_detected',
+          ),
+        );
+      }
+    });
   }
 }

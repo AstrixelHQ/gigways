@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gigways/core/services/activity_service.dart';
 import 'package:gigways/core/services/motion_permission.dart';
+import 'package:gigways/core/services/notification_service.dart';
 import 'package:gigways/core/services/permission_service.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:go_router/go_router.dart';

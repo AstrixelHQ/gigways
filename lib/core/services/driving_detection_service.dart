@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
-import 'package:gigways/core/services/notification_service.dart';
 
 class DrivingDetectionService {
   static final DrivingDetectionService _instance =
@@ -44,22 +43,8 @@ class DrivingDetectionService {
       _lastDrivingState = isDriving;
 
       if (isDriving) {
-        _onDrivingDetected();
-      } else {
-        _onDrivingStopped();
-      }
+      } else {}
     }
-  }
-
-  // Called when driving is detected
-  void _onDrivingDetected() {
-    // Send notification that driving was detected
-    NotificationService().showDrivingDetected();
-  }
-
-  // Called when driving stops
-  void _onDrivingStopped() {
-    // Optional: Could notify when driving stops
   }
 
   // Enable or disable automatic detection

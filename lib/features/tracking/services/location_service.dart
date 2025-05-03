@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' show cos, sqrt, asin, sin, pi;
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
+import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
@@ -184,7 +185,7 @@ class LocationService {
 }
 
 @Riverpod(keepAlive: true)
-LocationService locationService(LocationServiceRef ref) {
+LocationService locationService(Ref ref) {
   final service = LocationService();
 
   // Initialize the service

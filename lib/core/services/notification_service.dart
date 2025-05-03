@@ -1,8 +1,11 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:riverpod/riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-// Enum for notification channels
+part 'notification_service.g.dart';
+
 enum NotificationChannel {
   driving(
     id: 'driving_status',
@@ -67,6 +70,11 @@ class NotificationData {
   });
 }
 
+@riverpod
+NotificationService notificationService(Ref ref) {
+  return NotificationService();
+}
+
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -86,28 +94,16 @@ class NotificationService {
   Future<void> initialize() async {
     print('🔔 Initializing notification service...');
 
-    // Android initialization settings
-    const androidSettings =
+    const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    // iOS initialization settings
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings();
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
     );
-
-    // Initialize settings for all platforms
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    // Initialize notifications
-    await _notifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
+    await _notifications.initialize(initializationSettings);
 
     // Create notification channels for Android
     await _createNotificationChannels();
@@ -199,74 +195,5 @@ class NotificationService {
   // Clean up resources
   void dispose() {
     _notificationTapController.close();
-  }
-}
-
-// Extension for driving-specific notifications
-extension DrivingNotifications on NotificationService {
-  Future<void> showDrivingStarted() async {
-    await show(
-      const NotificationData(
-        id: 1001,
-        title: 'Driving Detected',
-        body: 'You are currently driving. Stay safe!',
-        channel: NotificationChannel.driving,
-        ongoing: true,
-        autoCancel: false,
-        color: Colors.blue,
-        payload: 'driving_started',
-      ),
-    );
-  }
-
-  Future<void> showDrivingStopped() async {
-    await cancel(1001); // Cancel ongoing driving notification
-    await show(
-      const NotificationData(
-        id: 1002,
-        title: 'Driving Ended',
-        body: 'Your driving session has ended.',
-        channel: NotificationChannel.driving,
-        color: Colors.green,
-        payload: 'driving_stopped',
-      ),
-    );
-  }
-}
-
-// Extension for break-related notifications
-extension BreakNotifications on NotificationService {
-  Future<void> showBreakReminder({
-    required String startTime,
-    required int participants,
-  }) async {
-    await show(
-      NotificationData(
-        id: 2001,
-        title: 'Break Time Reminder',
-        body: 'Scheduled break at $startTime with $participants participants',
-        channel: NotificationChannel.breaks,
-        color: Colors.orange,
-        payload: 'break_reminder',
-      ),
-    );
-  }
-}
-
-extension DrivingDetectionNotifications on NotificationService {
-  Future<void> showDrivingDetected() async {
-    await show(
-      NotificationData(
-        id: 2001,
-        title: 'Driving Detected',
-        body:
-            'We noticed you may be driving. Would you like to start tracking?',
-        channel: NotificationChannel.driving,
-        ongoing: false,
-        autoCancel: true,
-        color: Colors.blue,
-        payload: 'driving_detected',
-      ),
-    );
   }
 }

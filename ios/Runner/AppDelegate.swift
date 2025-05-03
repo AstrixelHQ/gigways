@@ -10,8 +10,13 @@ import CoreMotion
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    
     let controller: FlutterViewController = window?.rootViewController as! FlutterViewController
     let channel = FlutterMethodChannel(name: "motion_permission", binaryMessenger: controller.binaryMessenger)
+
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    }
 
     channel.setMethodCallHandler { [weak self] (call, result) in
       switch call.method {

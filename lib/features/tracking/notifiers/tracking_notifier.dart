@@ -522,7 +522,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     _lastActivityType = event.type;
     _lastActivityChangeTime = now;
 
-    // Handle driving detection
+    // Only show notification for significant state changes
     if (event.type == ActivityType.IN_VEHICLE) {
       _notificationService.show(
         NotificationData(

@@ -49,13 +49,13 @@ class ActivityService with WidgetsBindingObserver {
         _activityRecognition.activityStream(runForegroundService: true).listen(
       (ActivityEvent event) {
         currentActivity = event;
-        print("Detected activity: ${event.type}");
+        // Only log if it's a significant state change
         if (event.type == ActivityType.IN_VEHICLE) {
-          print("User is driving!");
+          debugPrint("Driving activity detected");
         }
       },
       onError: (error) {
-        print("Activity Recognition error: $error");
+        debugPrint("Activity Recognition error: $error");
       },
     );
   }
@@ -81,13 +81,12 @@ class ActivityService with WidgetsBindingObserver {
       distanceFilter: 50.0,
       stopOnTerminate: false,
       startOnBoot: true,
-      debug: true,
-      logLevel: bg.Config.LOG_LEVEL_VERBOSE,
+      debug: false,
+      logLevel: bg.Config.LOG_LEVEL_ERROR,
     )).then((bg.State state) {
       if (!state.enabled) {
         bg.BackgroundGeolocation.start();
       }
-      print('[BackgroundGeolocation] enabled: ${state.enabled}');
     });
   }
 

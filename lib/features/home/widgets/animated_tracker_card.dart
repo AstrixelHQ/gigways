@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/utils/time_formatter.dart';
 import 'package:gigways/core/widgets/app_button.dart';
+import 'package:gigways/features/schedule/models/schedule_models.dart';
+import 'package:gigways/features/schedule/notifiers/schedule_notifier.dart';
 import 'package:intl/intl.dart';
 
 enum TrackerState { inactive, active, endingShift }
@@ -44,7 +47,7 @@ class TrackerData {
   }
 }
 
-class TrackerCard extends StatefulWidget {
+class TrackerCard extends ConsumerStatefulWidget {
   final bool isTrackerEnabled;
   final TrackerData trackerData;
   final int drivingNow;
@@ -63,10 +66,10 @@ class TrackerCard extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<TrackerCard> createState() => _TrackerCardState();
+  ConsumerState<TrackerCard> createState() => _TrackerCardState();
 }
 
-class _TrackerCardState extends State<TrackerCard>
+class _TrackerCardState extends ConsumerState<TrackerCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _heightAnimation;
@@ -148,6 +151,43 @@ class _TrackerCardState extends State<TrackerCard>
     }
   }
 
+  // Get today's day name (e.g., "Monday")
+  String _getTodayName() {
+    final now = DateTime.now();
+    final dayNames = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday'
+    ];
+    return dayNames[now.weekday % 7]; // Adjusted to match our data model
+  }
+
+  // Get schedule for today
+  DayScheduleModel? _getTodaySchedule(ScheduleModel? schedule) {
+    if (schedule == null) return null;
+
+    final today = _getTodayName();
+    return schedule.weeklySchedule[today];
+  }
+
+  // Convert TimeOfDayModel to DateTime for today
+  DateTime? _timeOfDayToDateTime(TimeOfDayModel? timeModel) {
+    if (timeModel == null) return null;
+
+    final now = DateTime.now();
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+      timeModel.hour,
+      timeModel.minute,
+    );
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -158,6 +198,19 @@ class _TrackerCardState extends State<TrackerCard>
 
   @override
   Widget build(BuildContext context) {
+    // Get schedule data
+    final scheduleState = ref.watch(scheduleNotifierProvider);
+    final schedule = scheduleState.schedule;
+    final todaySchedule = _getTodaySchedule(schedule);
+
+    // Get scheduled start and end times for today
+    final scheduledStartTime = todaySchedule != null
+        ? _timeOfDayToDateTime(todaySchedule.timeRange.start)
+        : null;
+    final scheduledEndTime = todaySchedule != null
+        ? _timeOfDayToDateTime(todaySchedule.timeRange.end)
+        : null;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColorToken.black.value.withAlpha(50),
@@ -188,7 +241,7 @@ class _TrackerCardState extends State<TrackerCard>
             },
             child: _currentState == TrackerState.endingShift
                 ? _buildEarningsForm()
-                : _buildTrackerContent(),
+                : _buildTrackerContent(scheduledStartTime, scheduledEndTime),
           ),
         ],
       ),
@@ -266,7 +319,10 @@ class _TrackerCardState extends State<TrackerCard>
     }
   }
 
-  Widget _buildTrackerContent() {
+  Widget _buildTrackerContent(
+      DateTime? scheduledStartTime, DateTime? scheduledEndTime) {
+    final hasSchedule = scheduledStartTime != null && scheduledEndTime != null;
+
     return Padding(
       key: const ValueKey<String>('tracker_content'),
       padding: const EdgeInsets.all(16),
@@ -316,27 +372,54 @@ class _TrackerCardState extends State<TrackerCard>
           ),
           16.verticalSpace,
 
-          // Start and end time
-          if (_currentState == TrackerState.active &&
-              widget.trackerData.startTime != null)
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTimeCard(
-                    label: 'Started',
-                    time: widget.trackerData.startTime!,
+          // Schedule information
+          hasSchedule
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: _buildTimeCard(
+                        label: 'Scheduled Start',
+                        time: scheduledStartTime,
+                      ),
+                    ),
+                    16.horizontalSpace,
+                    Expanded(
+                      child: _buildTimeCard(
+                        label: 'Scheduled End',
+                        time: scheduledEndTime,
+                      ),
+                    ),
+                  ],
+                )
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppColorToken.black.value,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColorToken.golden.value.withAlpha(30),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: AppColorToken.golden.value.withAlpha(150),
+                        size: 20,
+                      ),
+                      12.horizontalSpace,
+                      Expanded(
+                        child: Text(
+                          "No schedule set for today. Set your schedule in Settings.",
+                          style: AppTextStyle.size(14).regular.withColor(
+                              AppColorToken.white..color.withAlpha(70)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                16.horizontalSpace,
-                Expanded(
-                  child: _buildTimeCard(
-                    label: 'Est. End',
-                    time: widget.trackerData.startTime!
-                        .add(const Duration(hours: 8)),
-                  ),
-                ),
-              ],
-            ),
+          16.verticalSpace,
 
           // CTA Button for tracking
           if (_currentState == TrackerState.inactive) ...[
@@ -348,44 +431,6 @@ class _TrackerCardState extends State<TrackerCard>
           ],
 
           16.verticalSpace,
-
-          // Status line
-          // Container(
-          //   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          //   decoration: BoxDecoration(
-          //     color: AppColorToken.golden.value.withAlpha(10),
-          //     borderRadius: BorderRadius.circular(8),
-          //   ),
-          //   child: Row(
-          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //     children: [
-          //       Text(
-          //         'Georgia:',
-          //         style: AppTextStyle.size(14)
-          //             .medium
-          //             .withColor(AppColorToken.white),
-          //       ),
-          //       RichText(
-          //         text: TextSpan(
-          //           style: AppTextStyle.size(14)
-          //               .medium
-          //               .withColor(AppColorToken.white),
-          //           children: [
-          //             TextSpan(
-          //               text: widget.drivingNow.toString(),
-          //               style: TextStyle(
-          //                 color: AppColorToken.golden.value,
-          //               ),
-          //             ),
-          //             const TextSpan(text: ' / '),
-          //             TextSpan(text: widget.totalDrivers.toString()),
-          //             const TextSpan(text: ' driving right now!'),
-          //           ],
-          //         ),
-          //       ),
-          //     ],
-          //   ),
-          // ),
         ],
       ),
     );
@@ -521,7 +566,10 @@ class _TrackerCardState extends State<TrackerCard>
     );
   }
 
-  Widget _buildTimeCard({required String label, required DateTime time}) {
+  Widget _buildTimeCard({
+    required String label,
+    required DateTime? time,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
@@ -542,7 +590,7 @@ class _TrackerCardState extends State<TrackerCard>
           ),
           4.verticalSpace,
           Text(
-            DateFormat('h:mm a').format(time),
+            time != null ? DateFormat('h:mm a').format(time) : "",
             style: AppTextStyle.size(16).bold.withColor(AppColorToken.white),
           ),
         ],

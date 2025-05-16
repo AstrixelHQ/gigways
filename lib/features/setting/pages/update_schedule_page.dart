@@ -5,13 +5,11 @@ import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/app_colors.dart';
 import 'package:gigways/core/theme/app_text_styles.dart';
 import 'package:gigways/core/widgets/app_button.dart';
-import 'package:gigways/core/widgets/app_snackbar.dart';
 import 'package:gigways/core/widgets/enhanced_time_picker.dart';
 import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/schedule/models/schedule_models.dart';
 import 'package:gigways/features/schedule/notifiers/schedule_notifier.dart';
-import 'package:time_range_picker/time_range_picker.dart';
 
 class UpdateSchedulePage extends ConsumerStatefulWidget {
   const UpdateSchedulePage({super.key});

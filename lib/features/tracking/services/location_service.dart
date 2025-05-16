@@ -56,7 +56,7 @@ class LocationService {
       stopOnTerminate: false,
       startOnBoot: true,
       debug: false,
-      logLevel: bg.Config.LOG_LEVEL_VERBOSE,
+      logLevel: bg.Config.LOG_LEVEL_ERROR,
     ));
 
     print('Location service initialized');

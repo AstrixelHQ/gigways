@@ -1,5 +1,3 @@
-// lib/features/strike/pages/strike_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
@@ -20,17 +18,31 @@ class StrikePage extends ConsumerStatefulWidget {
   ConsumerState<StrikePage> createState() => _StrikePageState();
 }
 
-class _StrikePageState extends ConsumerState<StrikePage> {
+class _StrikePageState extends ConsumerState<StrikePage>
+    with SingleTickerProviderStateMixin {
   bool showCalendar = false;
   DateTime selectedDate = DateTime.now();
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
+    // Animation controller for subtle UI effects
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+
     // Refresh strike data on initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(strikeNotifierProvider.notifier).refreshStrikeData();
     });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -64,12 +76,11 @@ class _StrikePageState extends ConsumerState<StrikePage> {
                     _buildErrorWidget(
                         strikeState.errorMessage ?? 'An error occurred'),
 
-                  // Nationwide Strike Card - only show if user has selected a date or has an active strike
+                  // Nationwide Strike Card - show if user has a strike, selected date, or there's a popular date
                   if (strikeState.userStrike != null ||
-                      strikeState.selectedDate != null)
+                      strikeState.selectedDate != null ||
+                      strikeState.mostPopularDate != null)
                     _buildNationwideStrikeCard(strikeState),
-
-                  // Only show schedule card if user doesn't have an active strike
 
                   24.verticalSpace,
 
@@ -93,7 +104,7 @@ class _StrikePageState extends ConsumerState<StrikePage> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red),
       ),
       child: Row(
@@ -112,18 +123,48 @@ class _StrikePageState extends ConsumerState<StrikePage> {
   }
 
   Widget _buildNationwideStrikeCard(StrikeState strikeState) {
-    // Get the date to display (either user's strike date or selected date)
-    final displayDate =
-        strikeState.userStrike?.date ?? strikeState.selectedDate!;
+    // Determine which date to display with clear priority order
+    final DateTime displayDate;
+    final String cardTitle;
+    final bool isUserSelectedDate;
+
+    if (strikeState.userStrike != null) {
+      // User's scheduled strike has highest priority
+      displayDate = strikeState.userStrike!.date;
+      cardTitle = 'Your Scheduled Strike';
+      isUserSelectedDate = true;
+    } else if (strikeState.selectedDate != null) {
+      // User's temporarily selected date comes next
+      displayDate = strikeState.selectedDate!;
+      cardTitle = 'Selected Strike Date';
+      isUserSelectedDate = true;
+    } else if (strikeState.mostPopularDate != null) {
+      // Most popular date as fallback
+      displayDate = strikeState.mostPopularDate!.date;
+      cardTitle = 'Most Popular Strike Date';
+      isUserSelectedDate = false;
+    } else {
+      // Unlikely fallback case
+      displayDate = DateTime.now();
+      cardTitle = 'Upcoming Strike';
+      isUserSelectedDate = false;
+    }
 
     // Format date parts
     final month = DateFormat('MMM').format(displayDate);
     final day = DateFormat('dd').format(displayDate);
     final year = DateFormat('yyyy').format(displayDate);
 
-    // Get statistics
-    final statsToShow = strikeState.selectedDateStats;
+    // Get appropriate statistics for the displayed date
+    final StrikeCountResult? statsToShow;
+    if (strikeState.userStrike != null || strikeState.selectedDate != null) {
+      statsToShow = strikeState.selectedDateStats;
+    } else {
+      statsToShow = strikeState.mostPopularDate;
+    }
+
     final totalParticipants = statsToShow?.totalCount ?? 0;
+    final stateParticipants = statsToShow?.stateCount ?? 0;
 
     // Get optimal time based on the date
     final startTime = strikeState.getRecommendedTime(displayDate);
@@ -140,26 +181,43 @@ class _StrikePageState extends ConsumerState<StrikePage> {
         border: Border.all(
           color: AppColorToken.golden.value.withAlpha(30),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColorToken.golden.value.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with title and icon
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Nationwide Strike',
+                cardTitle,
                 style:
                     AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
               ),
               // Day/night icon based on time
-              Icon(
-                isDay ? Icons.wb_sunny_outlined : Icons.nightlight_round,
-                color: AppColorToken.golden.value,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColorToken.black.value.withAlpha(100),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isDay ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                  color: AppColorToken.golden.value,
+                  size: 20,
+                ),
               ),
             ],
           ),
           24.verticalSpace,
+
           // Date Display
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -183,101 +241,145 @@ class _StrikePageState extends ConsumerState<StrikePage> {
               _buildDateBox(year),
             ],
           ),
-          16.verticalSpace,
-
-          // Reschedule option - NEW ADDITION
+          20.verticalSpace,
 
           // Start Time
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: AppColorToken.white.value.withAlpha(10),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColorToken.black.value.withAlpha(80),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColorToken.golden.value.withAlpha(40),
+                width: 1,
+              ),
             ),
-            child: Text(
-              'Start $startTime',
-              style:
-                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-              textAlign: TextAlign.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  color: AppColorToken.golden.value,
+                  size: 18,
+                ),
+                10.horizontalSpace,
+                Text(
+                  'Start $startTime',
+                  style: AppTextStyle.size(16)
+                      .medium
+                      .withColor(AppColorToken.white),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          16.verticalSpace,
-          if (strikeState.userStrike != null) ...[
+          24.verticalSpace,
+
+          // Participant Information in a notice-like card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColorToken.white.value.withAlpha(10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColorToken.golden.value.withAlpha(30),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.people_alt_outlined,
+                  color: AppColorToken.golden.value,
+                  size: 20,
+                ),
+                12.horizontalSpace,
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: AppTextStyle.size(15)
+                          .medium
+                          .withColor(AppColorToken.white),
+                      children: [
+                        TextSpan(
+                          text: '$totalParticipants',
+                          style: TextStyle(
+                            color: AppColorToken.golden.value,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(text: ' participants nationwide, '),
+                        TextSpan(
+                          text: '$stateParticipants',
+                          style: TextStyle(
+                            color: AppColorToken.golden.value,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextSpan(text: ' in ${strikeState.userState}'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          24.verticalSpace,
+
+          // Buttons
+          if (isUserSelectedDate && strikeState.userStrike != null) ...[
             Center(
-              child: GestureDetector(
-                onTap: () {
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColorToken.black.value.withAlpha(120),
+                  foregroundColor: AppColorToken.golden.value,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: AppColorToken.golden.value,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.calendar_today, size: 18),
+                label: const Text('Reschedule Strike'),
+                onPressed: () {
                   setState(() {
                     selectedDate = DateTime.now();
                     showCalendar = true;
                   });
                 },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColorToken.golden.value.withAlpha(30),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColorToken.golden.value,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: AppColorToken.golden.value,
-                      ),
-                      8.horizontalSpace,
-                      Text(
-                        'Reschedule Strike',
-                        style: AppTextStyle.size(14)
-                            .medium
-                            .withColor(AppColorToken.golden),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
-            16.verticalSpace,
           ],
 
-          16.verticalSpace,
-          // Participants Count - Only show if there are actual participants
-          if (totalParticipants > 0)
-            RichText(
-              text: TextSpan(
-                style:
-                    AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-                children: [
-                  TextSpan(
-                    text: '$totalParticipants',
-                    style: TextStyle(
-                      color: AppColorToken.golden.value,
+          // Join button - For popular dates not selected by user
+          if (!isUserSelectedDate) ...[
+            Center(
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return AppButton(
+                    text: 'Join This Strike',
+                    onPressed: () {
+                      // Schedule the strike for this date
+                      ref
+                          .read(strikeNotifierProvider.notifier)
+                          .scheduleStrike(displayDate);
+                    },
+                    width: 200,
+                    backgroundColor: Color.lerp(
+                      AppColorToken.golden.value.withAlpha(180),
+                      AppColorToken.golden.value,
+                      _animationController.value,
                     ),
-                  ),
-                  const TextSpan(text: ' out of '),
-                  TextSpan(
-                    text: '${strikeState.totalUsers}',
-                    style: TextStyle(
-                      color: AppColorToken.golden.value,
-                    ),
-                  ),
-                  const TextSpan(text: ' users chose this day!'),
-                ],
+                  );
+                },
               ),
-            )
-          else
-            Text(
-              'No participants for this day yet. Be the first!',
-              style:
-                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
             ),
-          14.verticalSpace,
+          ],
         ],
       ),
     );
@@ -302,81 +404,156 @@ class _StrikePageState extends ConsumerState<StrikePage> {
         border: Border.all(
           color: AppColorToken.golden.value.withAlpha(30),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColorToken.black.value.withAlpha(50),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Schedule Strike',
-            style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
-          ),
-          16.verticalSpace,
-          _buildParticipantInfo(
-            'Nationwide users',
-            '${strikeState.totalUsers}',
-          ),
-          8.verticalSpace,
-          _buildParticipantInfo(
-            '${strikeState.userState} users',
-            '${strikeState.stateUsers}',
-          ),
-          16.verticalSpace,
-          Text(
-            'Strike to unite, demand higher wages, and improve conditions!',
-            style: AppTextStyle.size(16).medium.withColor(AppColorToken.white),
-          ),
-          24.verticalSpace,
-
-          // Progress Circle with popular dates
+          // Header
           Row(
             children: [
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 160,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CustomPaint(
-                        size: const Size(160, 160),
-                        painter: ProgressCirclePainter(
-                          progress: _calculateProgressFromDates(datesToShow),
-                          color: AppColorToken.golden.value,
-                        ),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Use appropriate icon based on time of day
-                          Icon(
-                            _isDayTime()
-                                ? Icons.wb_sunny_outlined
-                                : Icons.nightlight_round,
-                            color: AppColorToken.golden.value,
-                            size: 24,
-                          ),
-                          8.verticalSpace,
-                          Text(
-                            _isDayTime() ? 'Day Time' : 'Night Time',
-                            style: AppTextStyle.size(16)
-                                .medium
-                                .withColor(AppColorToken.white),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              Icon(
+                Icons.calendar_month_outlined,
+                color: AppColorToken.golden.value,
+                size: 24,
               ),
-              20.horizontalSpace,
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: _buildPopularDatesList(datesToShow),
-                ),
+              12.horizontalSpace,
+              Text(
+                'Schedule Strike',
+                style:
+                    AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
               ),
             ],
           ),
+          24.verticalSpace,
+
+          // Statistics Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColorToken.black.value.withAlpha(80),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColorToken.golden.value.withAlpha(40),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatRow(
+                  'Nationwide users',
+                  '${strikeState.totalUsers}',
+                  Icons.public,
+                ),
+                12.verticalSpace,
+                _buildStatRow(
+                  '${strikeState.userState} users',
+                  '${strikeState.stateUsers}',
+                  Icons.location_on_outlined,
+                ),
+                16.verticalSpace,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColorToken.golden.value.withAlpha(180),
+                      size: 18,
+                    ),
+                    10.horizontalSpace,
+                    Expanded(
+                      child: Text(
+                        'Strike to unite, demand higher wages, and improve conditions!',
+                        style: AppTextStyle.size(14)
+                            .medium
+                            .withColor(AppColorToken.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          24.verticalSpace,
+
+          // Popular Dates Section
+          Text(
+            'Popular Strike Dates',
+            style:
+                AppTextStyle.size(16).semiBold.withColor(AppColorToken.golden),
+          ),
+          16.verticalSpace,
+
+          // Dates Display
+          if (datesToShow.isEmpty)
+            _buildEmptyDatesWidget()
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColorToken.black.value.withAlpha(80),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  // Time of day display
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColorToken.black.value.withAlpha(100),
+                          border: Border.all(
+                            color: AppColorToken.golden.value.withAlpha(80),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          _isDayTime()
+                              ? Icons.wb_sunny_outlined
+                              : Icons.nightlight_round,
+                          color: AppColorToken.golden.value,
+                          size: 16,
+                        ),
+                      ),
+                      12.horizontalSpace,
+                      Text(
+                        _isDayTime() ? 'Day Time' : 'Night Time',
+                        style: AppTextStyle.size(14)
+                            .medium
+                            .withColor(AppColorToken.white),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'State %',
+                        style: AppTextStyle.size(14).regular.withColor(
+                              AppColorToken.white..color.withAlpha(150),
+                            ),
+                      ),
+                    ],
+                  ),
+                  20.verticalSpace,
+
+                  // Date list
+                  ...datesToShow
+                      .map((result) => _buildDateCard(
+                            result,
+                            isTopChoice: datesToShow.indexOf(result) == 0,
+                            totalStateParticipants: datesToShow.fold<int>(
+                                0, (sum, item) => sum + item.stateCount),
+                            datesToShow: datesToShow,
+                          ))
+                      .toList(),
+                ],
+              ),
+            ),
           24.verticalSpace,
 
           // Choose Date Button - Only show if user doesn't have an active strike
@@ -394,7 +571,161 @@ class _StrikePageState extends ConsumerState<StrikePage> {
                   showCalendar = true;
                 });
               },
+              leading: const Icon(Icons.calendar_today, size: 20),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyDatesWidget() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColorToken.black.value.withAlpha(80),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColorToken.white.value.withAlpha(20),
+        ),
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.calendar_month_outlined,
+              color: AppColorToken.white.value.withAlpha(100),
+              size: 40,
+            ),
+            16.verticalSpace,
+            Text(
+              'No strike dates scheduled yet',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
+            ),
+            8.verticalSpace,
+            Text(
+              'Be the first to schedule a strike date!',
+              style: AppTextStyle.size(14).regular.withColor(
+                    AppColorToken.white..color.withAlpha(150),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: AppColorToken.golden.value.withAlpha(180),
+          size: 18,
+        ),
+        10.horizontalSpace,
+        Text(
+          '$label:',
+          style: AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+        ),
+        8.horizontalSpace,
+        Text(
+          value,
+          style: AppTextStyle.size(14).semiBold.withColor(AppColorToken.golden),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateCard(StrikeCountResult result,
+      {required bool isTopChoice,
+      required int totalStateParticipants,
+      required List<StrikeCountResult> datesToShow}) {
+    final statePercentage = totalStateParticipants > 0
+        ? (result.stateCount / totalStateParticipants * 100).round()
+        : 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isTopChoice
+            ? AppColorToken.golden.value.withAlpha(40)
+            : AppColorToken.black.value.withAlpha(50),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isTopChoice
+              ? AppColorToken.golden.value.withAlpha(100)
+              : AppColorToken.white.value.withAlpha(20),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (isTopChoice)
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColorToken.golden.value.withAlpha(70),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.star,
+                color: AppColorToken.golden.value,
+                size: 16,
+              ),
+            )
+          else
+            Container(
+              width: 24,
+              alignment: Alignment.center,
+              child: Text(
+                '${datesToShow.indexOf(result) + 1}',
+                style: AppTextStyle.size(14).medium.withColor(
+                      AppColorToken.white..color.withAlpha(150),
+                    ),
+              ),
+            ),
+          12.horizontalSpace,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMM dd, yyyy').format(result.date),
+                  style: AppTextStyle.size(15).medium.withColor(
+                        isTopChoice
+                            ? AppColorToken.golden
+                            : AppColorToken.white,
+                      ),
+                ),
+                if (result.stateCount > 0 || result.totalCount > 0) ...[
+                  6.verticalSpace,
+                  Text(
+                    '${result.stateCount} in state, ${result.totalCount} nationwide',
+                    style: AppTextStyle.size(12).regular.withColor(
+                          AppColorToken.white..color.withAlpha(150),
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColorToken.black.value.withAlpha(100),
+            ),
+            child: Center(
+              child: Text(
+                '$statePercentage%',
+                style: AppTextStyle.size(12).bold.withColor(
+                      isTopChoice ? AppColorToken.golden : AppColorToken.white,
+                    ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -404,51 +735,6 @@ class _StrikePageState extends ConsumerState<StrikePage> {
   bool _isDayTime() {
     final hour = DateTime.now().hour;
     return hour >= 6 && hour < 18; // 6am to 6pm
-  }
-
-  // Calculate progress based on date distribution
-  double _calculateProgressFromDates(List<StrikeCountResult> dates) {
-    if (dates.isEmpty) {
-      return 0.6; // Default if no data
-    }
-
-    // Get total participants across all dates
-    final totalParticipants =
-        dates.fold<int>(0, (sum, result) => sum + result.totalCount);
-
-    if (totalParticipants == 0) {
-      return 0.6; // Default if no participants
-    }
-
-    // Use the ratio of most popular date to total participants
-    final mostPopular = dates[0].totalCount;
-
-    return mostPopular / totalParticipants;
-  }
-
-  List<Widget> _buildPopularDatesList(List<StrikeCountResult> dates) {
-    if (dates.isEmpty) {
-      return [
-        _buildDateDistribution('No data', 'No strikes scheduled yet'),
-      ];
-    }
-
-    // Calculate total participants for percentage calculation
-    final totalParticipants =
-        dates.fold<int>(0, (sum, result) => sum + result.totalCount);
-
-    return dates.map((result) {
-      final percentage = totalParticipants > 0
-          ? (result.totalCount / totalParticipants * 100).round()
-          : 0;
-
-      final dateText = DateFormat('MMM dd yyyy').format(result.date);
-
-      return _buildDateDistribution(
-        '$percentage % user:',
-        dateText,
-      );
-    }).toList();
   }
 
   Widget _buildCalendarView(StrikeState strikeState) {
@@ -532,48 +818,17 @@ class _StrikePageState extends ConsumerState<StrikePage> {
       decoration: BoxDecoration(
         color: AppColorToken.white.value,
         borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: AppColorToken.black.value.withAlpha(40),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         text,
         style: AppTextStyle.size(18).bold.withColor(AppColorToken.black),
-      ),
-    );
-  }
-
-  Widget _buildParticipantInfo(String label, String count) {
-    return Row(
-      children: [
-        Text(
-          '$label : ',
-          style: AppTextStyle.size(16).regular.withColor(AppColorToken.white),
-        ),
-        Text(
-          count,
-          style: AppTextStyle.size(16).bold.withColor(AppColorToken.golden),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateDistribution(String percentage, String date) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            percentage,
-            style:
-                AppTextStyle.size(16).regular.withColor(AppColorToken.golden),
-          ),
-          1.horizontalSpace,
-          Expanded(
-            child: Text(
-              ' $date',
-              style:
-                  AppTextStyle.size(16).regular.withColor(AppColorToken.white),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -655,136 +910,181 @@ class CalendarGrid extends StatelessWidget {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Month and year with navigation
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.chevron_left,
-                color: AppColorToken.white.value,
-              ),
-              onPressed: () {
-                final previousMonth = DateTime(
-                  selectedDate.year,
-                  selectedDate.month - 1,
-                  1,
-                );
-                onDateSelected(previousMonth);
-              },
-            ),
-            Text(
-              DateFormat('MMMM yyyy').format(selectedDate),
-              style: AppTextStyle.size(20).bold.withColor(AppColorToken.white),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right,
-                color: AppColorToken.white.value,
-              ),
-              onPressed: () {
-                final nextMonth = DateTime(
-                  selectedDate.year,
-                  selectedDate.month + 1,
-                  1,
-                );
-                onDateSelected(nextMonth);
-              },
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColorToken.black.value.withAlpha(60),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColorToken.golden.value.withAlpha(30),
         ),
-        16.verticalSpace,
-
-        // Weekday headers
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-              .map((day) => SizedBox(
-                    width: 30,
-                    child: Text(
-                      day,
-                      style: AppTextStyle.size(14)
-                          .medium
-                          .withColor(AppColorToken.golden),
-                      textAlign: TextAlign.center,
-                    ),
-                  ))
-              .toList(),
-        ),
-        12.verticalSpace,
-
-        // Calendar grid
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-          ),
-          itemCount: 42, // 6 weeks * 7 days
-          itemBuilder: (context, index) {
-            // Calculate the day number
-            final dayNumber = index - adjustedFirstWeekday + 1;
-
-            if (dayNumber < 1 || dayNumber > daysInMonth) {
-              return const SizedBox();
-            }
-
-            final date = DateTime(currentYear, currentMonth, dayNumber);
-
-            // Check if this date is before today (past dates not selectable)
-            final isPastDate = date.isBefore(todayDate);
-
-            // Check if this date is the selected date
-            final isSelected = date.day == selectedDate.day &&
-                date.month == selectedDate.month &&
-                date.year == selectedDate.year;
-
-            // Check if user has a strike scheduled for this date
-            final hasStrikeOnDate = userStrike != null &&
-                userStrike?.date.day == date.day &&
-                userStrike?.date.month == date.month &&
-                userStrike?.date.year == date.year;
-
-            return GestureDetector(
-              onTap: isPastDate ? null : () => onDateSelected(date),
-              child: Container(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Month and year with navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
                 decoration: BoxDecoration(
+                  color: AppColorToken.black.value.withAlpha(80),
                   shape: BoxShape.circle,
-                  color: isSelected
-                      ? AppColorToken.white.value
-                      : hasStrikeOnDate
-                          ? AppColorToken.golden.value.withOpacity(0.3)
-                          : Colors.transparent,
-                  border: Border.all(
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.chevron_left,
+                    color: AppColorToken.golden.value,
+                  ),
+                  onPressed: () {
+                    final previousMonth = DateTime(
+                      selectedDate.year,
+                      selectedDate.month - 1,
+                      1,
+                    );
+                    onDateSelected(previousMonth);
+                  },
+                  iconSize: 22,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+              ),
+              Text(
+                DateFormat('MMMM yyyy').format(selectedDate),
+                style:
+                    AppTextStyle.size(18).bold.withColor(AppColorToken.white),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColorToken.black.value.withAlpha(80),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color: AppColorToken.golden.value,
+                  ),
+                  onPressed: () {
+                    final nextMonth = DateTime(
+                      selectedDate.year,
+                      selectedDate.month + 1,
+                      1,
+                    );
+                    onDateSelected(nextMonth);
+                  },
+                  iconSize: 22,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          20.verticalSpace,
+
+          // Weekday headers
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                .map((day) => SizedBox(
+                      width: 30,
+                      child: Text(
+                        day,
+                        style: AppTextStyle.size(14)
+                            .medium
+                            .withColor(AppColorToken.golden),
+                        textAlign: TextAlign.center,
+                      ),
+                    ))
+                .toList(),
+          ),
+          16.verticalSpace,
+
+          // Calendar grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+            ),
+            itemCount: 42, // 6 weeks * 7 days
+            itemBuilder: (context, index) {
+              // Calculate the day number
+              final dayNumber = index - adjustedFirstWeekday + 1;
+
+              if (dayNumber < 1 || dayNumber > daysInMonth) {
+                return const SizedBox();
+              }
+
+              final date = DateTime(currentYear, currentMonth, dayNumber);
+
+              // Check if this date is before today (past dates not selectable)
+              final isPastDate = date.isBefore(todayDate);
+
+              // Check if this date is the selected date
+              final isSelected = date.day == selectedDate.day &&
+                  date.month == selectedDate.month &&
+                  date.year == selectedDate.year;
+
+              // Check if this date is today
+              final isToday = date.day == today.day &&
+                  date.month == today.month &&
+                  date.year == today.year;
+
+              // Check if user has a strike scheduled for this date
+              final hasStrikeOnDate = userStrike != null &&
+                  userStrike?.date.day == date.day &&
+                  userStrike?.date.month == date.month &&
+                  userStrike?.date.year == date.year;
+
+              return GestureDetector(
+                onTap: isPastDate ? null : () => onDateSelected(date),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
                     color: isSelected
                         ? AppColorToken.white.value
                         : hasStrikeOnDate
-                            ? AppColorToken.golden.value
-                            : Colors.transparent,
+                            ? AppColorToken.golden.value.withOpacity(0.3)
+                            : isToday
+                                ? AppColorToken.golden.value.withOpacity(0.1)
+                                : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColorToken.white.value
+                          : hasStrikeOnDate
+                              ? AppColorToken.golden.value
+                              : isToday
+                                  ? AppColorToken.golden.value.withAlpha(100)
+                                  : Colors.transparent,
+                      width: isToday || hasStrikeOnDate ? 1 : 0,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      dayNumber.toString(),
+                      style: AppTextStyle.size(14).medium.withColor(
+                            isPastDate
+                                ? AppColorToken.white
+                                : isSelected
+                                    ? AppColorToken.black
+                                    : AppColorToken.white,
+                          ),
+                    ),
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    dayNumber.toString(),
-                    style: AppTextStyle.size(14).medium.withColor(
-                          isPastDate
-                              ? AppColorToken.white
-                              : isSelected
-                                  ? AppColorToken.black
-                                  : AppColorToken.white,
-                        ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

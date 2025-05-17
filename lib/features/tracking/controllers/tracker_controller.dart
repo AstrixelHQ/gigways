@@ -15,7 +15,7 @@ class TrackerController extends _$TrackerController {
   // Start tracking manually
   Future<void> startTracking() async {
     // Disable driving detection notifications while tracking is active
-    DrivingDetectionService().setDetectionEnabled(false);
+    ref.read(drivingDetectionServiceProvider).setDetectionEnabled(false);
 
     // Start actual tracking
     await ref.read(trackingNotifierProvider.notifier).startTracking();
@@ -27,7 +27,7 @@ class TrackerController extends _$TrackerController {
     await ref.read(trackingNotifierProvider.notifier).stopTracking();
 
     // Re-enable driving detection after tracking stops
-    DrivingDetectionService().setDetectionEnabled(true);
+    ref.read(drivingDetectionServiceProvider).setDetectionEnabled(true);
   }
 
   // End shift with earnings
@@ -38,6 +38,15 @@ class TrackerController extends _$TrackerController {
         );
 
     // Re-enable driving detection
-    DrivingDetectionService().setDetectionEnabled(true);
+    ref.read(drivingDetectionServiceProvider).setDetectionEnabled(true);
+  }
+
+  // Handle notification actions
+  void handleNotificationAction(String? payload, String actionId) async {
+    if (payload == 'inactivity_detected' && actionId == 'stop') {
+      // If user presses "End Tracking" on the inactivity notification
+      await stopTracking();
+    }
+    // Other actions can be added here
   }
 }

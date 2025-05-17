@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/constants/app_constant.dart';
 import 'package:gigways/core/services/activity_service.dart';
@@ -14,6 +15,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   await initilizer(() => const App());
+}
+
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse response) {
+  // This is a required top-level function
+  // We'll delegate to the instance method via a static method
+  NotificationService.handleBackgroundResponse(response);
 }
 
 FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {

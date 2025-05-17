@@ -55,7 +55,7 @@ class StrikeModel {
   }
 }
 
-// Strike count result model
+// Strike count result model with enhanced state-specific information
 class StrikeCountResult {
   final DateTime date;
   final String dateString;
@@ -68,4 +68,25 @@ class StrikeCountResult {
     this.totalCount = 0,
     this.stateCount = 0,
   });
+
+  // Helper to create a copy with updated values
+  StrikeCountResult copyWith({
+    DateTime? date,
+    String? dateString,
+    int? totalCount,
+    int? stateCount,
+  }) {
+    return StrikeCountResult(
+      date: date ?? this.date,
+      dateString: dateString ?? this.dateString,
+      totalCount: totalCount ?? this.totalCount,
+      stateCount: stateCount ?? this.stateCount,
+    );
+  }
+
+  // Calculate state percentage
+  double get statePercentage {
+    if (totalCount == 0) return 0.0;
+    return stateCount / totalCount;
+  }
 }

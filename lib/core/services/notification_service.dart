@@ -1,6 +1,8 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:gigways/main.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -71,7 +73,7 @@ class NotificationData {
 }
 
 @riverpod
-NotificationService notificationService(Ref ref) {
+NotificationService notificationService(NotificationServiceRef ref) {
   return NotificationService();
 }
 
@@ -88,27 +90,69 @@ class NotificationService {
   final _notificationTapController = StreamController<String?>.broadcast();
   Stream<String?> get onNotificationTap => _notificationTapController.stream;
 
-  int _notificationId = 0;
+  // Static reference to instance for background handler
+  static NotificationService? _staticInstance;
+
+  int _notificationId = 1000; // Start at 1000 for dynamic IDs
 
   // Initialize notification service
   Future<void> initialize() async {
-    print('🔔 Initializing notification service...');
+    debugPrint('Initializing notification service...');
+    // Set static instance
+    _staticInstance = this;
 
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings();
-    const InitializationSettings initializationSettings =
+
+    // iOS initialization settings
+    final DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+      notificationCategories: [
+        DarwinNotificationCategory(
+          'actionable',
+          actions: [
+            DarwinNotificationAction.plain(
+              'stop',
+              'Stop Tracking',
+              options: {DarwinNotificationActionOption.destructive},
+            ),
+            DarwinNotificationAction.plain(
+              'continue',
+              'Continue',
+              options: {DarwinNotificationActionOption.foreground},
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final InitializationSettings initializationSettings =
         InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
-    await _notifications.initialize(initializationSettings);
+
+    await _notifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+      // Use the top-level function for background response
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+    );
 
     // Create notification channels for Android
     await _createNotificationChannels();
 
-    print('✅ Notification service initialized');
+    debugPrint('Notification service initialized');
+  }
+
+  // Static method to handle background notification taps
+  static void handleBackgroundResponse(NotificationResponse response) {
+    debugPrint('Background notification tapped: ${response.payload}');
+    // We can only add to the stream when the instance exists
+    _staticInstance?._notificationTapController.add(response.payload);
   }
 
   Future<void> _createNotificationChannels() async {
@@ -130,7 +174,7 @@ class NotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    print('🔔 Notification tapped: ${response.payload}');
+    debugPrint('Notification tapped: ${response.payload}');
     _notificationTapController.add(response.payload);
   }
 
@@ -138,7 +182,7 @@ class NotificationService {
     try {
       final id = notification.id ?? _getNextNotificationId();
 
-      print('🔔 Showing notification: ${notification.title}');
+      debugPrint('Showing notification: ${notification.title}');
 
       final androidDetails = AndroidNotificationDetails(
         notification.channel.id,
@@ -150,12 +194,35 @@ class NotificationService {
         autoCancel: notification.autoCancel,
         color: notification.color,
         timeoutAfter: notification.timeoutAfter?.inMilliseconds,
+
+        // Allow notification to show when app is in foreground
+        channelShowBadge: true,
+        showWhen: true,
+
+        // For driving detection - make it more noticeable
+        vibrationPattern: notification.channel == NotificationChannel.driving
+            ? Int64List.fromList([0, 1000, 500, 1000])
+            : null,
+
+        // For ongoing notifications, show a timestamp
+        usesChronometer: notification.ongoing,
+        chronometerCountDown: false,
+
+        // Actions for notifications
+        actions: notification.payload == 'inactivity_detected'
+            ? [
+                const AndroidNotificationAction('stop', 'End Tracking'),
+                const AndroidNotificationAction('continue', 'Continue'),
+              ]
+            : null,
       );
 
       final iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        categoryIdentifier:
+            notification.payload == 'inactivity_detected' ? 'actionable' : null,
       );
 
       final details = NotificationDetails(
@@ -171,19 +238,19 @@ class NotificationService {
         payload: notification.payload,
       );
     } catch (e) {
-      print('❌ Failed to show notification: $e');
+      debugPrint('Failed to show notification: $e');
     }
   }
 
   // Cancel a specific notification
   Future<void> cancel(int id) async {
-    print('🔔 Cancelling notification: $id');
+    debugPrint('Cancelling notification: $id');
     await _notifications.cancel(id);
   }
 
   // Cancel all notifications
   Future<void> cancelAll() async {
-    print('🔔 Cancelling all notifications');
+    debugPrint('Cancelling all notifications');
     await _notifications.cancelAll();
   }
 

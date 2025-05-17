@@ -8,7 +8,7 @@ import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/repositories/tracking_repository.dart';
 import 'package:gigways/features/tracking/services/location_service.dart';
 import 'package:gigways/core/services/notification_service.dart';
-import 'package:gigways/core/services/activity_recognition_service.dart';
+import 'package:gigways/core/services/driving_detection_service.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 
 part 'tracking_notifier.g.dart';
@@ -109,13 +109,16 @@ class TrackingNotifier extends _$TrackingNotifier {
   bool _isHandlingClosure = false;
   ActivityType? _lastActivityType;
   DateTime? _lastActivityChangeTime;
+  DateTime? _lastLocationUpdateTime;
+  
+  // Constants
+  static const int _inactivityThresholdMinutes = 5;  // 5 minutes of inactivity
+  static const int _inactivityCheckIntervalSeconds = 60;  // Check every minute
 
   TrackingRepository get _repository => ref.read(trackingRepositoryProvider);
   LocationService get _locationService => ref.read(locationServiceProvider);
-  NotificationService get _notificationService =>
-      ref.read(notificationServiceProvider);
-  ActivityRecognitionService get _activityService =>
-      ref.read(activityRecognitionServiceProvider);
+  NotificationService get _notificationService => ref.read(notificationServiceProvider);
+  DrivingDetectionService get _drivingDetectionService => ref.read(drivingDetectionServiceProvider);
 
   @override
   TrackingState build() {
@@ -138,15 +141,42 @@ class TrackingNotifier extends _$TrackingNotifier {
   void _setupAppLifecycleListener() {
     _appLifecycleSubscription?.cancel();
     SystemChannels.lifecycle.setMessageHandler((msg) async {
-      if (msg == AppLifecycleState.inactive.toString()) {
+      if (msg == AppLifecycleState.inactive.toString() || 
+          msg == AppLifecycleState.paused.toString()) {
         if (state.status == TrackingStatus.active && !_isHandlingClosure) {
+          // Don't stop tracking here, just set a flag to know the app went to background
           _isHandlingClosure = true;
-          await _handleAppClosure();
-          _isHandlingClosure = false;
+          
+          // Don't end the session - just make sure we have a notification 
+          // to remind the user that tracking is still active
+          _showTrackingActiveNotification();
         }
+      } else if (msg == AppLifecycleState.resumed.toString()) {
+        _isHandlingClosure = false;
+        
+        // Remove any background tracking notifications when app is resumed
+        _notificationService.cancel(102); // ID for background tracking notification
       }
       return null;
     });
+  }
+
+  // Show notification that tracking is still active in background
+  void _showTrackingActiveNotification() {
+    // Only show if we have an active session
+    if (state.activeSession == null) return;
+    
+    _notificationService.show(
+      NotificationData(
+        id: 102, // Fixed ID for background tracking notification
+        title: 'Tracking Active',
+        body: 'Your trip is still being tracked. Tap to return to GigWays.',
+        channel: NotificationChannel.driving,
+        ongoing: true,
+        autoCancel: false,
+        payload: 'tracking_active',
+      ),
+    );
   }
 
   Future<void> _handleAppClosure() async {
@@ -171,9 +201,10 @@ class TrackingNotifier extends _$TrackingNotifier {
       // Send notification
       await _notificationService.show(
         NotificationData(
+          id: 103, // Fixed ID for tracker stopped notification
           title: 'Tracker Stopped',
           body:
-              'Your tracker was active and has been stopped since the app was closed.',
+              'Your tracker was active and has been stopped since the app was closed. Your data has been saved.',
           channel: NotificationChannel.system,
           ongoing: false,
           autoCancel: true,
@@ -190,7 +221,7 @@ class TrackingNotifier extends _$TrackingNotifier {
       // Refresh insights
       await refreshInsights();
     } catch (e) {
-      print('Error handling app closure: $e');
+      debugPrint('Error handling app closure: $e');
     }
   }
 
@@ -198,7 +229,11 @@ class TrackingNotifier extends _$TrackingNotifier {
     if (payload == 'driving_detected') {
       // Auto-start tracking when notification is tapped
       startTracking();
+    } else if (payload == 'inactivity_detected') {
+      // Stop tracking when inactivity notification is tapped
+      stopTracking();
     }
+    // for tracking_active, we just go back to the app
   }
 
   // Initialize tracking state
@@ -257,6 +292,12 @@ class TrackingNotifier extends _$TrackingNotifier {
     state = state.copyWith(status: TrackingStatus.loading);
 
     try {
+      // Disable driving detection notifications while tracking is active
+      _drivingDetectionService.setDetectionEnabled(false);
+      
+      // Cancel any inactivity notifications that might be showing
+      _notificationService.cancel(104); // ID for inactivity notification
+
       // Start location tracking
       final initialLocation = await _locationService.startTracking();
       if (initialLocation == null) {
@@ -281,8 +322,10 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Set up tracking timer for duration
       _trackingStartTime = DateTime.now();
+      _lastLocationUpdateTime = DateTime.now();
       _locationPoints = [initialLocation];
       _setupTrackingTimer();
+      _setupInactivityDetection();
 
       state = state.copyWith(
         status: TrackingStatus.active,
@@ -290,6 +333,9 @@ class TrackingNotifier extends _$TrackingNotifier {
         currentLocations: _locationPoints,
       );
     } catch (e) {
+      // Re-enable driving detection on error
+      _drivingDetectionService.setDetectionEnabled(true);
+      
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: e.toString(),
@@ -300,6 +346,12 @@ class TrackingNotifier extends _$TrackingNotifier {
   // Resume tracking for an active session
   Future<void> _resumeTracking(TrackingSession session) async {
     try {
+      // Disable driving detection notifications while tracking is active
+      _drivingDetectionService.setDetectionEnabled(false);
+      
+      // Cancel any inactivity notifications that might be showing
+      _notificationService.cancel(104); // ID for inactivity notification
+
       // Start location tracking
       await _locationService.startTracking();
 
@@ -311,8 +363,10 @@ class TrackingNotifier extends _$TrackingNotifier {
       // Set up tracking timer for duration
       _trackingStartTime =
           DateTime.now().subtract(Duration(seconds: session.durationInSeconds));
+      _lastLocationUpdateTime = DateTime.now();
       _locationPoints = session.locations;
       _setupTrackingTimer();
+      _setupInactivityDetection();
 
       state = state.copyWith(
         status: TrackingStatus.active,
@@ -320,6 +374,9 @@ class TrackingNotifier extends _$TrackingNotifier {
         currentLocations: _locationPoints,
       );
     } catch (e) {
+      // Re-enable driving detection on error
+      _drivingDetectionService.setDetectionEnabled(true);
+      
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: e.toString(),
@@ -338,6 +395,9 @@ class TrackingNotifier extends _$TrackingNotifier {
 
     final userId = authState.user!.uid;
     final activeSession = state.activeSession!;
+
+    // Update last location update time for inactivity detection
+    _lastLocationUpdateTime = DateTime.now();
 
     // Add location to the list
     _locationPoints.add(location);
@@ -364,7 +424,7 @@ class TrackingNotifier extends _$TrackingNotifier {
         currentLocations: _locationPoints,
       );
     } catch (e) {
-      print('Error updating tracking session: $e');
+      debugPrint('Error updating tracking session: $e');
     }
   }
 
@@ -389,6 +449,46 @@ class TrackingNotifier extends _$TrackingNotifier {
       );
     });
   }
+  
+  // Set up inactivity detection
+  void _setupInactivityDetection() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer.periodic(
+      Duration(seconds: _inactivityCheckIntervalSeconds), 
+      (_) => _checkInactivity()
+    );
+  }
+  
+  // Check for inactivity
+  void _checkInactivity() {
+    if (state.status != TrackingStatus.active || 
+        _lastLocationUpdateTime == null) {
+      return;
+    }
+    
+    final now = DateTime.now();
+    final inactivityDuration = now.difference(_lastLocationUpdateTime!);
+    
+    // If inactive for threshold duration (4-5 minutes)
+    if (inactivityDuration.inMinutes >= _inactivityThresholdMinutes) {
+      _notifyInactivity();
+    }
+  }
+  
+  // Notify user of inactivity
+  void _notifyInactivity() {
+    _notificationService.show(
+      NotificationData(
+        id: 104, // Fixed ID for inactivity notification
+        title: 'Are You Still Driving?',
+        body: 'We haven\'t detected movement for ${_inactivityThresholdMinutes} minutes. Tap to end tracking if you\'ve stopped driving.',
+        channel: NotificationChannel.driving,
+        payload: 'inactivity_detected',
+        autoCancel: false,
+        ongoing: true, // Make it persistent
+      ),
+    );
+  }
 
   // Stop tracking
   Future<void> stopTracking() async {
@@ -408,9 +508,17 @@ class TrackingNotifier extends _$TrackingNotifier {
     // Stop location tracking
     await _locationService.stopTracking();
 
-    // Cancel timer and subscription
+    // Cancel timers and subscriptions
     _trackingTimer?.cancel();
     _locationSubscription?.cancel();
+    _inactivityTimer?.cancel();
+    
+    // Cancel any ongoing notifications
+    _notificationService.cancel(102); // Background tracking notification
+    _notificationService.cancel(104); // Inactivity notification
+
+    // Re-enable driving detection service
+    _drivingDetectionService.setDetectionEnabled(true);
 
     // Change state to ending shift
     state = state.copyWith(
@@ -451,6 +559,13 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Refresh insights
       await refreshInsights();
+      
+      // Cancel any ongoing notifications
+      _notificationService.cancel(102); // Background tracking notification
+      _notificationService.cancel(104); // Inactivity notification
+
+      // Re-enable driving detection
+      _drivingDetectionService.setDetectionEnabled(true);
 
       // Reset state
       state = state.copyWith(
@@ -499,7 +614,7 @@ class TrackingNotifier extends _$TrackingNotifier {
         yearlyInsights: yearlyInsights,
       );
     } catch (e) {
-      print('Error refreshing insights: $e');
+      debugPrint('Error refreshing insights: $e');
     }
   }
 
@@ -510,9 +625,10 @@ class TrackingNotifier extends _$TrackingNotifier {
 
   void _setupActivityRecognition() {
     _activitySubscription?.cancel();
-    _activityService.initialize();
+    
+    // We're using the activity stream from LocationService to avoid duplicate subscriptions
     _activitySubscription =
-        _activityService.activityStream.listen(_handleActivityChange);
+        _locationService.activityStream.listen(_handleActivityChange);
   }
 
   void _handleActivityChange(ActivityEvent event) {
@@ -522,40 +638,11 @@ class TrackingNotifier extends _$TrackingNotifier {
     _lastActivityType = event.type;
     _lastActivityChangeTime = now;
 
-    // Only show notification for significant state changes
+    // For inactivity detection
+    // If the user is STILL, we need to monitor this for inactivity
+    // If they're DRIVING, we reset the inactivity timer
     if (event.type == ActivityType.IN_VEHICLE) {
-      _notificationService.show(
-        NotificationData(
-          title: 'Driving Detected',
-          body: 'You are currently driving. Stay safe!',
-          channel: NotificationChannel.driving,
-          ongoing: true,
-          autoCancel: false,
-          payload: 'driving_detected',
-        ),
-      );
+      _lastLocationUpdateTime = now; // Reset inactivity timer when driving is detected
     }
-
-    // Handle inactivity
-    _resetInactivityTimer();
-  }
-
-  void _resetInactivityTimer() {
-    _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(const Duration(minutes: 15), () {
-      if (state.status == TrackingStatus.active &&
-          (_lastActivityType == ActivityType.STILL ||
-              _lastActivityType == ActivityType.UNKNOWN)) {
-        _notificationService.show(
-          NotificationData(
-            title: 'Inactivity Detected',
-            body:
-                'You have been inactive for 15 minutes. Would you like to stop tracking?',
-            channel: NotificationChannel.system,
-            payload: 'inactivity_detected',
-          ),
-        );
-      }
-    });
   }
 }

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
+import 'package:gigways/core/services/driving_detection_service.dart';
+import 'package:gigways/core/services/notification_service.dart';
 
 class ActivityService with WidgetsBindingObserver {
-  // Singleton instance (optional)
+  // Singleton instance
   static final ActivityService _instance = ActivityService._internal();
   factory ActivityService() => _instance;
   ActivityService._internal();
@@ -22,37 +24,33 @@ class ActivityService with WidgetsBindingObserver {
   // App lifecycle state
   AppLifecycleState? currentLifecycleState;
 
+  // Dependencies
+  final DrivingDetectionService _drivingDetectionService = DrivingDetectionService();
+  final NotificationService _notificationService = NotificationService();
+
+  // Flag to control background operation
+  bool _isRunningInBackground = false;
+
   /// Call this function to start activity and background location tracking.
   /// Make sure to request location permission before starting the service.
   Future<void> start() async {
     WidgetsBinding.instance.addObserver(this);
-    _startActivityRecognition();
+    await _startActivityRecognition();
     await _initializeBackgroundGeolocation();
+    
+    // Initialize the driving detection service
+    await _drivingDetectionService.initialize();
   }
 
   /// Starts listening to the activity recognition stream.
-  void _startActivityRecognition() {
-    // _activitySubscription = _activityRecognition.activityStream.listen(
-    //   (ActivityEvent event) {
-    //     currentActivity = event;
-    //     print("Detected activity: ${event.type}");
-    //     if (event.type == ActivityType.in_vehicle) {
-    //       print("User is driving!");
-    //     }
-    //   },
-    //   onError: (error) {
-    //     print("Activity Recognition error: $error");
-    //   },
-    // );
-
+  Future<void> _startActivityRecognition() async {
     _activitySubscription =
         _activityRecognition.activityStream(runForegroundService: true).listen(
       (ActivityEvent event) {
         currentActivity = event;
-        // Only log if it's a significant state change
-        if (event.type == ActivityType.IN_VEHICLE) {
-          debugPrint("Driving activity detected");
-        }
+        
+        // Forward the event to the driving detection service 
+        // which will handle notification after continuous detection
       },
       onError: (error) {
         debugPrint("Activity Recognition error: $error");
@@ -65,27 +63,50 @@ class ActivityService with WidgetsBindingObserver {
     // Listen for location updates.
     bg.BackgroundGeolocation.onLocation((bg.Location location) {
       currentLocation = location;
-      print('[BackgroundGeolocation] - Location: $location');
+      
+      // Only log location updates if app is in debug mode
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        debugPrint('[LocationUpdate] - ${location.coords.latitude}, ${location.coords.longitude}');
+      }
     }, (bg.LocationError error) {
-      print('[BackgroundGeolocation] ERROR: $error');
+      debugPrint('[LocationError] ERROR: $error');
     });
 
-    // Optionally, listen for motion changes.
-    bg.BackgroundGeolocation.onMotionChange((bg.Location location) {
-      print('[BackgroundGeolocation] - Motion changed: $location');
-    });
-
-    // Configure the plugin for continuous background tracking.
+    // Configure the plugin for continuous background tracking with battery optimizations
     bg.BackgroundGeolocation.ready(bg.Config(
-      desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
-      distanceFilter: 50.0,
+      // Only get high accuracy when actually tracking
+      desiredAccuracy: bg.Config.DESIRED_ACCURACY_MEDIUM,
+      distanceFilter: 50.0, // meters
       stopOnTerminate: false,
       startOnBoot: true,
-      debug: false,
+      debug: false, // Set to false in production
       logLevel: bg.Config.LOG_LEVEL_ERROR,
+      
+      // Battery optimizations
+      preventSuspend: false,
+      heartbeatInterval: 60, // seconds
+      
+      // Android specific
+      notification: bg.Notification(
+        title: "GigWays",
+        text: "Location services are active", // Generic message
+        channelName: "Location Services",
+        priority: bg.Config.NOTIFICATION_PRIORITY_LOW,
+      ),
     )).then((bg.State state) {
       if (!state.enabled) {
         bg.BackgroundGeolocation.start();
+      }
+    });
+
+    // Listen for app moving to background/foreground
+    bg.BackgroundGeolocation.onMotionChange((bg.Location location) {
+      // The motion-change API detects when device movement starts/stops
+      final isMoving = location.isMoving;
+      
+      // If the device starts moving in the background, check if we should start tracking
+      if (isMoving && _isRunningInBackground) {
+        debugPrint("[Motion] Device is moving in background");
       }
     });
   }
@@ -94,14 +115,25 @@ class ActivityService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     currentLifecycleState = state;
-    print("AppLifecycleState changed to: $state");
+    
+    // Track when app goes to background
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _isRunningInBackground = true;
+    } else if (state == AppLifecycleState.resumed) {
+      _isRunningInBackground = false;
+    }
   }
 
-  /// Dispose resources when the service is no longer needed.
-  /// Optionally stops background tracking if desired.
-  void dispose() {
+  /// Stop activity recognition and location tracking
+  Future<void> stop() async {
     WidgetsBinding.instance.removeObserver(this);
     _activitySubscription?.cancel();
     bg.BackgroundGeolocation.stop();
+  }
+
+  /// Dispose resources when the service is no longer needed.
+  void dispose() {
+    stop();
+    _drivingDetectionService.dispose();
   }
 }

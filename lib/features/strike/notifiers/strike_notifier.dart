@@ -136,15 +136,12 @@ class StrikeNotifier extends _$StrikeNotifier {
             selectedDate, state.userState);
       }
 
-      // Get most popular strike date if user doesn't have an active strike
-      StrikeCountResult? mostPopularDate;
-      if (userStrike == null) {
-        mostPopularDate =
-            await _repository.getMostPopularUpcomingStrikeDate(state.userState);
-      }
+      // Get most popular strike date in the user's state
+      final mostPopularDate =
+          await _repository.getMostPopularUpcomingStrikeDate(state.userState);
 
-      // Get upcoming strike dates
-      final upcomingStrikeDates =
+      // Get upcoming strike dates sorted by state count
+      final upcomingStrikeCounts =
           await _repository.getUpcomingStrikeCounts(state.userState);
 
       // Get user counts
@@ -157,7 +154,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         selectedDate: selectedDate,
         selectedDateStats: selectedDateStats,
         mostPopularDate: mostPopularDate,
-        upcomingStrikeDates: upcomingStrikeDates,
+        upcomingStrikeDates: upcomingStrikeCounts,
         totalUsers: totalUsers,
         stateUsers: stateUsers,
       );
@@ -172,6 +169,7 @@ class StrikeNotifier extends _$StrikeNotifier {
   // Select a date without fetching data
   void selectDate(DateTime date) {
     state = state.copyWith(selectedDate: date);
+    fetchSelectedDateStats();
   }
 
   // Fetch stats for currently selected date

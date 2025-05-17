@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:gigways/core/theme/themes.dart';
 
 class DualWheelSelector extends StatefulWidget {
@@ -32,6 +31,10 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
   late int _hours;
   late int _minutes;
 
+  // Controllers for the pickers to programmatically scroll them
+  late FixedExtentScrollController _firstWheelController;
+  late FixedExtentScrollController _secondWheelController;
+
   @override
   void initState() {
     super.initState();
@@ -40,11 +43,35 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
       _hours = widget.initialValue.floor();
       // Convert decimal part to minutes (e.g., 0.5 hours = 30 minutes)
       _minutes = ((widget.initialValue - _hours) * 60).round();
+      // Round minutes to nearest 5
+      _minutes = (_minutes / 5).round() * 5;
+      if (_minutes == 60) {
+        _hours += 1;
+        _minutes = 0;
+      }
+
+      // Initialize controllers
+      _firstWheelController = FixedExtentScrollController(initialItem: _hours);
+      _secondWheelController =
+          FixedExtentScrollController(initialItem: _minutes ~/ 5);
     } else {
       // Initialize number values (for miles)
       _wholeNumberValue = widget.initialValue.floor();
       _decimalValue = ((widget.initialValue - _wholeNumberValue) * 10).round();
+
+      // Initialize controllers
+      _firstWheelController =
+          FixedExtentScrollController(initialItem: _wholeNumberValue);
+      _secondWheelController =
+          FixedExtentScrollController(initialItem: _decimalValue);
     }
+  }
+
+  @override
+  void dispose() {
+    _firstWheelController.dispose();
+    _secondWheelController.dispose();
+    super.dispose();
   }
 
   void _updateValue() {
@@ -57,6 +84,57 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
       final value = _wholeNumberValue + (_decimalValue / 10);
       widget.onValueChanged(value);
     }
+  }
+
+  // Method to programmatically update the wheels based on a selected value
+  void updateToValue(double value) {
+    if (widget.isHoursMode) {
+      final newHours = value.floor();
+      final newMinutes = ((value - newHours) * 60).round();
+      final roundedMinutes = (newMinutes / 5).round() * 5;
+
+      setState(() {
+        _hours = newHours;
+        _minutes = roundedMinutes;
+      });
+
+      // Animate the wheels to the new position
+      _firstWheelController.animateToItem(
+        newHours,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+
+      _secondWheelController.animateToItem(
+        roundedMinutes ~/ 5,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      final newWholeNumber = value.floor();
+      final newDecimal = ((value - newWholeNumber) * 10).round();
+
+      setState(() {
+        _wholeNumberValue = newWholeNumber;
+        _decimalValue = newDecimal;
+      });
+
+      // Animate the wheels to the new position
+      _firstWheelController.animateToItem(
+        newWholeNumber,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+
+      _secondWheelController.animateToItem(
+        newDecimal,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    // Update the value
+    _updateValue();
   }
 
   @override
@@ -116,8 +194,6 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
             ],
           ),
         ),
-
-        // Quick select values
         _buildQuickSelectButtons(),
       ],
     );
@@ -127,7 +203,7 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
     if (widget.isHoursMode) {
       // Hours wheel (0-24)
       return CupertinoPicker(
-        scrollController: FixedExtentScrollController(initialItem: _hours),
+        scrollController: _firstWheelController,
         itemExtent: 40,
         onSelectedItemChanged: (int value) {
           setState(() {
@@ -148,8 +224,7 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
     } else {
       // Whole number wheel for miles (0-999)
       return CupertinoPicker(
-        scrollController:
-            FixedExtentScrollController(initialItem: _wholeNumberValue),
+        scrollController: _firstWheelController,
         itemExtent: 40,
         onSelectedItemChanged: (int value) {
           setState(() {
@@ -174,9 +249,7 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
     if (widget.isHoursMode) {
       // Minutes wheel (0-59, in 5-minute increments)
       return CupertinoPicker(
-        scrollController: FixedExtentScrollController(
-          initialItem: (_minutes / 5).round(),
-        ),
+        scrollController: _secondWheelController,
         itemExtent: 40,
         onSelectedItemChanged: (int value) {
           setState(() {
@@ -197,8 +270,7 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
     } else {
       // Decimal wheel for miles (0-9)
       return CupertinoPicker(
-        scrollController:
-            FixedExtentScrollController(initialItem: _decimalValue),
+        scrollController: _secondWheelController,
         itemExtent: 40,
         onSelectedItemChanged: (int value) {
           setState(() {
@@ -223,9 +295,39 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
     List<double> quickValues;
 
     if (widget.isHoursMode) {
-      quickValues = [1.0, 2.0, 3.0, 4.0, 8.0];
+      quickValues = [
+        1.0,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        5.5,
+        6.0,
+        6.5,
+        7.0,
+        7.5,
+        8.0
+      ];
     } else {
-      quickValues = [5.0, 10.0, 15.0, 20.0, 30.0];
+      quickValues = [
+        1.0,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        5.5,
+        6.0,
+        6.5,
+        7.0,
+        7.5,
+        8.0,
+      ];
     }
 
     return Padding(
@@ -268,19 +370,8 @@ class _DualWheelSelectorState extends State<DualWheelSelector> {
 
     return GestureDetector(
       onTap: () {
-        if (widget.isHoursMode) {
-          setState(() {
-            _hours = value.floor();
-            _minutes = ((value - _hours) * 60).round();
-            _updateValue();
-          });
-        } else {
-          setState(() {
-            _wholeNumberValue = value.floor();
-            _decimalValue = ((value - _wholeNumberValue) * 10).round();
-            _updateValue();
-          });
-        }
+        // Update wheels to the selected value
+        updateToValue(value);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),

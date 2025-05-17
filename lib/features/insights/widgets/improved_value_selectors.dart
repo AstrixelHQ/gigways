@@ -56,6 +56,7 @@ class ImprovedMilesSelector extends ImprovedValueSelector {
 
 class _ImprovedMilesSelectorState extends State<ImprovedMilesSelector> {
   late double _selectedValue;
+  late DualWheelSelector _wheelSelector;
 
   @override
   void initState() {
@@ -97,10 +98,16 @@ class _ImprovedMilesSelectorState extends State<ImprovedMilesSelector> {
             // Title
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                'Enter Miles',
-                style:
-                    AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Enter Miles',
+                    style: AppTextStyle.size(18)
+                        .bold
+                        .withColor(AppColorToken.golden),
+                  ),
+                ],
               ),
             ),
 
@@ -130,7 +137,7 @@ class _ImprovedMilesSelectorState extends State<ImprovedMilesSelector> {
             ),
 
             // Dual wheel selector
-            DualWheelSelector(
+            _wheelSelector = DualWheelSelector(
               initialValue: _selectedValue,
               minValue: widget.minValue,
               maxValue: widget.maxValue,
@@ -143,7 +150,7 @@ class _ImprovedMilesSelectorState extends State<ImprovedMilesSelector> {
               },
             ),
 
-            // Done button
+            // Apply button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: SizedBox(
@@ -215,6 +222,7 @@ class ImprovedHoursSelector extends ImprovedValueSelector {
 
 class _ImprovedHoursSelectorState extends State<ImprovedHoursSelector> {
   late double _selectedValue;
+  late DualWheelSelector _wheelSelector;
 
   @override
   void initState() {
@@ -256,10 +264,16 @@ class _ImprovedHoursSelectorState extends State<ImprovedHoursSelector> {
             // Title
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                'Enter Hours',
-                style:
-                    AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Enter Hours',
+                    style: AppTextStyle.size(18)
+                        .bold
+                        .withColor(AppColorToken.golden),
+                  ),
+                ],
               ),
             ),
 
@@ -289,7 +303,7 @@ class _ImprovedHoursSelectorState extends State<ImprovedHoursSelector> {
             ),
 
             // Dual wheel selector for hours and minutes
-            DualWheelSelector(
+            _wheelSelector = DualWheelSelector(
               initialValue: _selectedValue,
               minValue: widget.minValue,
               maxValue: widget.maxValue,
@@ -302,7 +316,7 @@ class _ImprovedHoursSelectorState extends State<ImprovedHoursSelector> {
               },
             ),
 
-            // Done button
+            // Apply button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: SizedBox(

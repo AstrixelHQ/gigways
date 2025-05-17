@@ -52,7 +52,7 @@ class InsightsSummaryCard extends StatelessWidget {
               ),
               4.verticalSpace,
               Text(
-                '\${netEarnings.toStringAsFixed(2)}',
+                '\$${netEarnings.toStringAsFixed(2)}',
                 style:
                     AppTextStyle.size(24).bold.withColor(AppColorToken.golden),
               ),
@@ -84,10 +84,10 @@ class InsightsSummaryCard extends StatelessWidget {
                         ),
                         6.horizontalSpace,
                         Text(
-                          '\${earnings.toStringAsFixed(2)}',
+                          '\$${earnings.toStringAsFixed(2)}',
                           style: AppTextStyle.size(16)
                               .semiBold
-                              .withColor(Colors.green.toToken()),
+                              .withColor(AppColorToken.golden),
                         ),
                       ],
                     ),
@@ -116,10 +116,10 @@ class InsightsSummaryCard extends StatelessWidget {
                         ),
                         6.horizontalSpace,
                         Text(
-                          '\${expenses.toStringAsFixed(2)}',
+                          '\$${expenses.toStringAsFixed(2)}',
                           style: AppTextStyle.size(16)
                               .semiBold
-                              .withColor(Colors.red.toToken()),
+                              .withColor(AppColorToken.golden),
                         ),
                       ],
                     ),

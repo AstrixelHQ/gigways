@@ -145,7 +145,7 @@ class ChartCard extends StatelessWidget {
           4.horizontalSpace,
           Text(
             text,
-            style: AppTextStyle.size(12).medium.withColor(color.toToken()),
+            style: AppTextStyle.size(12).medium.withColor(AppColorToken.golden),
           ),
         ],
       ),

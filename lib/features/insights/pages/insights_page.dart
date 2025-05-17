@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/insights/widgets/number_selector_wheel.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
@@ -293,7 +295,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                               children: [
                                 Icon(
                                   Icons.arrow_downward,
-                                  color: AppColorToken.red.value,
+                                  color: AppColorToken.red.color,
                                   size: 14,
                                 ),
                                 4.horizontalSpace,
@@ -353,7 +355,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                           children: [
                             Icon(
                               Icons.delete_outlined,
-                              color: Colors.redAccent,
+                              color: AppColorToken.red.color,
                               size: 18,
                             ),
                             8.horizontalSpace,
@@ -369,7 +371,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                     ],
                     onSelected: (value) {
                       if (value == 'edit') {
-                        _showEditDialog(context, item, session);
+                        _showEnhancedEditDialog(context, item, session);
                       } else if (value == 'delete') {
                         _showDeleteConfirmation(context, session);
                       }
@@ -414,22 +416,24 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  void _showEditDialog(
+  // Enhanced edit dialog with scrollable selectors
+  void _showEnhancedEditDialog(
       BuildContext context, InsightEntry entry, TrackingSession session) {
-    // Controllers for the text fields
-    final milesController = TextEditingController(text: entry.miles.toString());
-    final hoursController = TextEditingController(text: entry.hours.toString());
+    // Initial values for the selectors
+    double selectedMiles = entry.miles;
+    double selectedHours = entry.hours;
+
+    // Format earnings and expenses properly
     final earningsController =
-        TextEditingController(text: entry.earnings.toString());
+        TextEditingController(text: entry.earnings.toStringAsFixed(2));
     final expensesController =
-        TextEditingController(text: entry.expenses.toString());
+        TextEditingController(text: entry.expenses.toStringAsFixed(2));
 
     showDialog(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppColorToken.black.value,
@@ -438,193 +442,294 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
               color: AppColorToken.golden.value.withAlpha(50),
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.edit_outlined,
-                    color: AppColorToken.golden.value,
-                    size: 20,
+                  // Header
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        color: AppColorToken.golden.value,
+                        size: 20,
+                      ),
+                      12.horizontalSpace,
+                      Text(
+                        'Edit Entry',
+                        style: AppTextStyle.size(18)
+                            .bold
+                            .withColor(AppColorToken.golden),
+                      ),
+                    ],
                   ),
-                  12.horizontalSpace,
+                  16.verticalSpace,
+
+                  // Date and time info (non-editable)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(50),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColorToken.white.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Date: ',
+                              style: AppTextStyle.size(14).regular.withColor(
+                                  AppColorToken.white..color.withAlpha(180)),
+                            ),
+                            Text(
+                              entry.date,
+                              style: AppTextStyle.size(14)
+                                  .medium
+                                  .withColor(AppColorToken.white),
+                            ),
+                          ],
+                        ),
+                        8.verticalSpace,
+                        Row(
+                          children: [
+                            Text(
+                              'Time: ',
+                              style: AppTextStyle.size(14).regular.withColor(
+                                  AppColorToken.white..color.withAlpha(180)),
+                            ),
+                            Text(
+                              entry.time,
+                              style: AppTextStyle.size(14)
+                                  .medium
+                                  .withColor(AppColorToken.white),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  20.verticalSpace,
+
+                  // Miles selector
                   Text(
-                    'Edit Entry',
-                    style: AppTextStyle.size(18)
-                        .bold
-                        .withColor(AppColorToken.golden),
+                    'Miles',
+                    style: AppTextStyle.size(16)
+                        .medium
+                        .withColor(AppColorToken.white),
+                  ),
+                  8.verticalSpace,
+                  Container(
+                    height: 120,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(30),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColorToken.golden.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.directions_car,
+                          color: AppColorToken.golden.value,
+                          size: 24,
+                        ),
+                        16.horizontalSpace,
+                        Expanded(
+                          child: NumberSelectorWheel(
+                            initialValue: selectedMiles,
+                            minValue: 0,
+                            maxValue: 1000,
+                            step: 0.5,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedMiles = value;
+                              });
+                            },
+                            formatValue: (value) =>
+                                '${value.toStringAsFixed(1)}',
+                            suffix: 'mi',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  16.verticalSpace,
+
+                  // Hours selector
+                  Text(
+                    'Hours',
+                    style: AppTextStyle.size(16)
+                        .medium
+                        .withColor(AppColorToken.white),
+                  ),
+                  8.verticalSpace,
+                  Container(
+                    height: 120,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColorToken.black.value.withAlpha(30),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColorToken.golden.value.withAlpha(30),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          color: AppColorToken.golden.value,
+                          size: 24,
+                        ),
+                        16.horizontalSpace,
+                        Expanded(
+                          child: NumberSelectorWheel(
+                            initialValue: selectedHours,
+                            minValue: 0,
+                            maxValue: 24,
+                            step: 0.25,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedHours = value;
+                              });
+                            },
+                            formatValue: (value) =>
+                                '${value.toStringAsFixed(2)}',
+                            suffix: 'hrs',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  16.verticalSpace,
+
+                  // Earnings field
+                  _buildCurrencyField(
+                    context: context,
+                    label: 'Earnings (\$)',
+                    controller: earningsController,
+                    icon: Icons.attach_money,
+                  ),
+                  12.verticalSpace,
+
+                  // Expenses field
+                  _buildCurrencyField(
+                    context: context,
+                    label: 'Expenses (\$)',
+                    controller: expensesController,
+                    icon: Icons.receipt_long,
+                  ),
+                  24.verticalSpace,
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          text: 'Cancel',
+                          onPressed: () => Navigator.pop(context),
+                          backgroundColor: Colors.grey[800],
+                          height: 48,
+                        ),
+                      ),
+                      16.horizontalSpace,
+                      Expanded(
+                        child: AppButton(
+                          text: 'Save',
+                          onPressed: () {
+                            // Parse the entered values
+                            final miles = selectedMiles;
+                            final hours = selectedHours;
+                            final earnings =
+                                double.tryParse(earningsController.text) ??
+                                    entry.earnings;
+                            final expenses =
+                                double.tryParse(expensesController.text) ??
+                                    entry.expenses;
+
+                            // Update the session with the new values
+                            _updateSession(
+                              session,
+                              miles: miles,
+                              hours: hours,
+                              earnings: earnings,
+                              expenses: expenses,
+                            );
+
+                            Navigator.pop(context);
+                          },
+                          height: 48,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              16.verticalSpace,
-
-              // Date and time info (non-editable)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColorToken.black.value.withAlpha(50),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColorToken.white.value.withAlpha(30),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Date: ${entry.date}',
-                      style: AppTextStyle.size(14)
-                          .medium
-                          .withColor(AppColorToken.white),
-                    ),
-                    8.verticalSpace,
-                    Text(
-                      'Time: ${entry.time}',
-                      style: AppTextStyle.size(14)
-                          .medium
-                          .withColor(AppColorToken.white),
-                    ),
-                  ],
-                ),
-              ),
-              20.verticalSpace,
-
-              // Editable fields
-              // Miles field
-              _buildEditField(
-                context: context,
-                label: 'Miles',
-                controller: milesController,
-                icon: Icons.directions_car_outlined,
-                keyboardType: TextInputType.number,
-              ),
-              12.verticalSpace,
-
-              // Hours field
-              _buildEditField(
-                context: context,
-                label: 'Hours',
-                controller: hoursController,
-                icon: Icons.access_time_outlined,
-                keyboardType: TextInputType.number,
-              ),
-              12.verticalSpace,
-
-              // Earnings field
-              _buildEditField(
-                context: context,
-                label: 'Earnings (\$)',
-                controller: earningsController,
-                icon: Icons.attach_money,
-                keyboardType: TextInputType.number,
-              ),
-              12.verticalSpace,
-
-              // Expenses field
-              _buildEditField(
-                context: context,
-                label: 'Expenses (\$)',
-                controller: expensesController,
-                icon: Icons.receipt_long,
-                keyboardType: TextInputType.number,
-              ),
-              24.verticalSpace,
-
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: AppButton(
-                      text: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
-                      backgroundColor: Colors.grey[800],
-                      height: 48,
-                    ),
-                  ),
-                  16.horizontalSpace,
-                  Expanded(
-                    child: AppButton(
-                      text: 'Save',
-                      onPressed: () {
-                        // Parse the entered values
-                        final miles = double.tryParse(milesController.text) ??
-                            entry.miles;
-                        final hours = double.tryParse(hoursController.text) ??
-                            entry.hours;
-                        final earnings =
-                            double.tryParse(earningsController.text) ??
-                                entry.earnings;
-                        final expenses =
-                            double.tryParse(expensesController.text) ??
-                                entry.expenses;
-
-                        // Update the session with the new values
-                        _updateSession(
-                          session,
-                          miles: miles,
-                          hours: hours,
-                          earnings: earnings,
-                          expenses: expenses,
-                        );
-
-                        Navigator.pop(context);
-                      },
-                      height: 48,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEditField({
+  Widget _buildCurrencyField({
     required BuildContext context,
     required String label,
     required TextEditingController controller,
     required IconData icon,
-    required TextInputType keyboardType,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: AppTextStyle.size(12)
-              .medium
-              .withColor(AppColorToken.white..color.withAlpha(180)),
+          style: AppTextStyle.size(16).medium.withColor(AppColorToken.white),
         ),
-        6.verticalSpace,
+        8.verticalSpace,
         Container(
           decoration: BoxDecoration(
             color: AppColorToken.black.value.withAlpha(30),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColorToken.white.value.withAlpha(30),
+              color: AppColorToken.golden.value.withAlpha(30),
             ),
           ),
           child: TextField(
             controller: controller,
-            style: AppTextStyle.size(16).regular.withColor(AppColorToken.white),
-            keyboardType: keyboardType,
+            style: AppTextStyle.size(18).regular.withColor(AppColorToken.white),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               prefixIcon: Icon(
                 icon,
                 color: AppColorToken.golden.value,
-                size: 18,
+                size: 24,
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 12,
+                vertical: 16,
               ),
             ),
+            onChanged: (value) {
+              // Format the value as currency if needed
+              if (value.isNotEmpty) {
+                final numericValue = double.tryParse(value);
+                if (numericValue != null) {
+                  // Only update if parsed successfully - otherwise keep user's input
+                  controller.text = numericValue.toStringAsFixed(2);
+                  controller.selection = TextSelection.fromPosition(
+                    TextPosition(offset: controller.text.length),
+                  );
+                }
+              }
+            },
           ),
         ),
       ],

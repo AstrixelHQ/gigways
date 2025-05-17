@@ -6,6 +6,7 @@ import 'package:gigways/features/auth/pages/state_selection_page.dart';
 import 'package:gigways/features/community/models/post_model.dart';
 import 'package:gigways/features/dashboard/pages/pages.dart';
 import 'package:gigways/features/home/pages/pages.dart';
+import 'package:gigways/features/insights/pages/insights_page.dart';
 import 'package:gigways/features/onboarding/pages/pages.dart';
 import 'package:gigways/features/setting/models/policy_model.dart';
 import 'package:gigways/features/setting/pages/pages.dart';
@@ -177,5 +178,13 @@ class CommentRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return CommentsPage(post: $extra);
+  }
+}
+
+@TypedGoRoute<InsightsRoute>(path: InsightsPage.path)
+class InsightsRoute extends GoRouteData {
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const InsightsPage();
   }
 }

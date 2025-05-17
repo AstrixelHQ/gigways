@@ -99,8 +99,8 @@ class HomePage extends ConsumerWidget {
                 ),
                 24.verticalSpace,
 
-                // My Insights Section
-                _buildInsightsSection(trackingState, trackingNotifier),
+                // My Insights Section - Modified to be clickable and navigate to Insights page
+                _buildInsightsSection(context, trackingState, trackingNotifier),
                 24.verticalSpace,
 
                 // News and Ads Section
@@ -133,7 +133,8 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildInsightsSection(
+  // Modified Insights Section with navigation to the Insights page
+  Widget _buildInsightsSection(BuildContext context,
       TrackingState trackingState, TrackingNotifier trackingNotifier) {
     final insights = trackingState.selectedInsights;
     final selectedPeriod = trackingState.selectedInsightPeriod;
@@ -144,117 +145,165 @@ class HomePage extends ConsumerWidget {
     final earnings = insights?.totalEarnings ?? 0.0;
     final expenses = insights?.totalExpenses ?? 0.0;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorToken.black.value.withAlpha(50),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColorToken.golden.value.withAlpha(30),
+    return GestureDetector(
+      onTap: () => InsightsRoute().push(context), // Navigate to insights page
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColorToken.black.value.withAlpha(50),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColorToken.golden.value.withAlpha(30),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with filter
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'My Insights',
-                style:
-                    AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColorToken.black.value,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColorToken.golden.value.withAlpha(30),
-                  ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with filter and arrow to indicate navigation
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'My Insights',
+                  style: AppTextStyle.size(18)
+                      .bold
+                      .withColor(AppColorToken.golden),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedPeriod,
-                    icon: Icon(
-                      Icons.arrow_drop_down,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColorToken.black.value,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColorToken.golden.value.withAlpha(30),
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedPeriod,
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: AppColorToken.golden.value,
+                          ),
+                          style: AppTextStyle.size(14)
+                              .medium
+                              .withColor(AppColorToken.white),
+                          dropdownColor: AppColorToken.black.value,
+                          isDense: true,
+                          items: ['Today', 'Weekly', 'Monthly', 'Yearly']
+                              .map((String period) {
+                            return DropdownMenuItem<String>(
+                              value: period,
+                              child: Text(period),
+                            );
+                          }).toList(),
+                          onChanged: (String? value) {
+                            if (value != null) {
+                              trackingNotifier.setInsightPeriod(value);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    12.horizontalSpace,
+                    // Add arrow icon to indicate navigation
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
                       color: AppColorToken.golden.value,
                     ),
-                    style: AppTextStyle.size(14)
-                        .medium
-                        .withColor(AppColorToken.white),
-                    dropdownColor: AppColorToken.black.value,
-                    isDense: true,
-                    items: ['Today', 'Weekly', 'Monthly', 'Yearly']
-                        .map((String period) {
-                      return DropdownMenuItem<String>(
-                        value: period,
-                        child: Text(period),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      if (value != null) {
-                        trackingNotifier.setInsightPeriod(value);
-                      }
-                    },
+                  ],
+                ),
+              ],
+            ),
+            16.verticalSpace,
+
+            // Insights grid - 2 rows, 2 columns
+            Row(
+              children: [
+                // Miles
+                Expanded(
+                  child: _buildInsightCard(
+                    icon: Icons.directions_car,
+                    title: 'Miles',
+                    value: '$miles',
+                    suffix: 'mi',
                   ),
                 ),
-              ),
-            ],
-          ),
-          16.verticalSpace,
+                8.horizontalSpace,
+                // Hours
+                Expanded(
+                  child: _buildInsightCard(
+                    icon: Icons.access_time_filled,
+                    title: 'Hours',
+                    value: hours,
+                    suffix: 'hrs',
+                  ),
+                ),
+              ],
+            ),
+            8.verticalSpace,
+            Row(
+              children: [
+                // Earnings
+                Expanded(
+                  child: _buildInsightCard(
+                    icon: Icons.attach_money,
+                    title: 'Earnings',
+                    value: '\$${earnings.toStringAsFixed(2)}',
+                    valueColor: AppColorToken.success.value,
+                  ),
+                ),
+                8.horizontalSpace,
+                // Expenses
+                Expanded(
+                  child: _buildInsightCard(
+                    icon: Icons.receipt_long,
+                    title: 'Expenses',
+                    value: '\$${expenses.toStringAsFixed(2)}',
+                    valueColor: AppColorToken.error.value,
+                  ),
+                ),
+              ],
+            ),
 
-          // Insights grid - 2 rows, 2 columns
-          Row(
-            children: [
-              // Miles
-              Expanded(
-                child: _buildInsightCard(
-                  icon: Icons.directions_car,
-                  title: 'Miles',
-                  value: '$miles',
-                  suffix: 'mi',
+            // Add "See all insights" button/text
+            16.verticalSpace,
+            Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColorToken.black.value.withAlpha(80),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColorToken.golden.value.withAlpha(50),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'See all insights',
+                      style: AppTextStyle.size(14)
+                          .medium
+                          .withColor(AppColorToken.golden),
+                    ),
+                    6.horizontalSpace,
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: AppColorToken.golden.value,
+                    ),
+                  ],
                 ),
               ),
-              8.horizontalSpace,
-              // Hours
-              Expanded(
-                child: _buildInsightCard(
-                  icon: Icons.access_time_filled,
-                  title: 'Hours',
-                  value: hours,
-                  suffix: 'hrs',
-                ),
-              ),
-            ],
-          ),
-          8.verticalSpace,
-          Row(
-            children: [
-              // Earnings
-              Expanded(
-                child: _buildInsightCard(
-                  icon: Icons.attach_money,
-                  title: 'Earnings',
-                  value: '\$${earnings.toStringAsFixed(2)}',
-                  valueColor: AppColorToken.success.value,
-                ),
-              ),
-              8.horizontalSpace,
-              // Expenses
-              Expanded(
-                child: _buildInsightCard(
-                  icon: Icons.receipt_long,
-                  title: 'Expenses',
-                  value: '\$${expenses.toStringAsFixed(2)}',
-                  valueColor: AppColorToken.error.value,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,13 +4,14 @@ import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/features/insights/models/insight_entry.dart';
-import 'package:gigways/features/insights/widgets/value_selector_sheet.dart';
+import 'package:gigways/features/insights/widgets/improved_value_selectors.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 
 class EditEntryBottomSheet extends StatefulWidget {
   final InsightEntry entry;
   final TrackingSession session;
-  final Function(TrackingSession session, {
+  final Function(
+    TrackingSession session, {
     required double miles,
     required double hours,
     required double earnings,
@@ -32,7 +33,8 @@ class EditEntryBottomSheet extends StatefulWidget {
     BuildContext context,
     InsightEntry entry,
     TrackingSession session,
-    Function(TrackingSession session, {
+    Function(
+      TrackingSession session, {
       required double miles,
       required double hours,
       required double earnings,
@@ -66,8 +68,10 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
     // Initialize values from entry
     _selectedMiles = widget.entry.miles;
     _selectedHours = widget.entry.hours;
-    _earningsController = TextEditingController(text: widget.entry.earnings.toStringAsFixed(2));
-    _expensesController = TextEditingController(text: widget.entry.expenses.toStringAsFixed(2));
+    _earningsController =
+        TextEditingController(text: widget.entry.earnings.toStringAsFixed(2));
+    _expensesController =
+        TextEditingController(text: widget.entry.expenses.toStringAsFixed(2));
   }
 
   @override
@@ -112,7 +116,7 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
                 ),
               ),
               16.verticalSpace,
-              
+
               // Header with title and close button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,11 +200,11 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
               // Miles selector button
               GestureDetector(
                 onTap: () async {
-                  final value = await MilesSelectorSheet.show(
+                  final value = await ImprovedMilesSelector.show(
                     context: context,
                     initialValue: _selectedMiles,
                   );
-                  
+
                   if (value != null) {
                     setState(() {
                       _selectedMiles = value;
@@ -229,9 +233,8 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
                         children: [
                           Text(
                             'Miles',
-                            style: AppTextStyle.size(14)
-                                .regular
-                                .withColor(AppColorToken.white..color.withAlpha(70)),
+                            style: AppTextStyle.size(14).regular.withColor(
+                                AppColorToken.white..color.withAlpha(70)),
                           ),
                           4.verticalSpace,
                           Text(
@@ -257,11 +260,11 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
               // Hours selector button
               GestureDetector(
                 onTap: () async {
-                  final value = await HoursSelectorSheet.show(
+                  final value = await ImprovedHoursSelector.show(
                     context: context,
                     initialValue: _selectedHours,
                   );
-                  
+
                   if (value != null) {
                     setState(() {
                       _selectedHours = value;
@@ -290,13 +293,12 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
                         children: [
                           Text(
                             'Hours',
-                            style: AppTextStyle.size(14)
-                                .regular
-                                .withColor(AppColorToken.white..color.withAlpha(70)),
+                            style: AppTextStyle.size(14).regular.withColor(
+                                AppColorToken.white..color.withAlpha(70)),
                           ),
                           4.verticalSpace,
                           Text(
-                            '${_selectedHours.toStringAsFixed(2)} hrs',
+                            _formatHoursMinutes(_selectedHours),
                             style: AppTextStyle.size(18)
                                 .medium
                                 .withColor(AppColorToken.white),
@@ -350,8 +352,10 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
     // Parse the entered values
     final miles = _selectedMiles;
     final hours = _selectedHours;
-    final earnings = double.tryParse(_earningsController.text) ?? widget.entry.earnings;
-    final expenses = double.tryParse(_expensesController.text) ?? widget.entry.expenses;
+    final earnings =
+        double.tryParse(_earningsController.text) ?? widget.entry.earnings;
+    final expenses =
+        double.tryParse(_expensesController.text) ?? widget.entry.expenses;
 
     // Update the session with the new values
     widget.onUpdate(
@@ -363,6 +367,18 @@ class _EditEntryBottomSheetState extends State<EditEntryBottomSheet> {
     );
 
     Navigator.pop(context);
+  }
+
+  // Format hours and minutes display (e.g., "2h 30m")
+  String _formatHoursMinutes(double hours) {
+    final hoursInt = hours.floor();
+    final minutes = ((hours - hoursInt) * 60).round();
+
+    if (minutes == 0) {
+      return '${hoursInt}h 0m';
+    } else {
+      return '${hoursInt}h ${minutes}m';
+    }
   }
 
   // Enhanced Currency Field with better UX

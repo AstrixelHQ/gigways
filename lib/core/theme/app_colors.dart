@@ -14,6 +14,8 @@ enum AppColorToken {
   background(Color(0xFFFFFBFE)),
   surface(Color(0xFFFFFBFE)),
   black(Color(0xFF000000)),
+  green(Color(0xFF00FF00)),
+  red(Color(0xFFFF0000)),
   lightDark(Color(0xFF1A1A1A)),
   surfaceVariant(Color(0xFFE7E0EC)),
 

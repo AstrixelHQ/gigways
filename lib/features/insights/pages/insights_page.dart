@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
@@ -63,14 +64,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
 
     return ScaffoldWrapper(
       shouldShowGradient: true,
-      appBar: AppBar(
-        title: Text(
-          'Insights',
-          style: AppTextStyle.size(24).bold.withColor(AppColorToken.golden),
-        ),
-        leading: Center(child: const AppBackButton()),
-        backgroundColor: AppColorToken.black.value.withAlpha(100),
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,7 +71,21 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
             16.verticalSpace,
 
             // Page header with back button
-
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const AppBackButton(),
+                  16.horizontalSpace,
+                  Text(
+                    'Insights',
+                    style: AppTextStyle.size(24)
+                        .bold
+                        .withColor(AppColorToken.golden),
+                  ),
+                ],
+              ),
+            ),
             24.verticalSpace,
 
             // Period selector tabs
@@ -150,69 +157,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           ),
         ),
 
-        // Table headers (sticky)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColorToken.black.value.withAlpha(80),
-            border: Border(
-              bottom: BorderSide(
-                color: AppColorToken.golden.value.withAlpha(30),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Date',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Time',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-              Expanded(
-                flex: 1,
-                child: Text(
-                  'Miles',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Earnings',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Expenses',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-            ],
-          ),
-        ),
-
         // Table content
         Expanded(
           child: insights.isEmpty
@@ -221,82 +165,552 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                   itemCount: insights.length,
                   itemBuilder: (context, index) {
                     final item = insights[index];
-                    final isLastItem = index == insights.length - 1;
-
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 10),
-                      decoration: BoxDecoration(
-                        border: isLastItem
-                            ? null
-                            : Border(
-                                bottom: BorderSide(
-                                  color:
-                                      AppColorToken.white.value.withAlpha(15),
-                                  width: 1,
-                                ),
-                              ),
-                      ),
-                      child: Row(
-                        children: [
-                          // Date column
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              item.date,
-                              style: AppTextStyle.size(14)
-                                  .medium
-                                  .withColor(AppColorToken.white),
-                            ),
-                          ),
-                          // Time column
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              item.time,
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.white),
-                            ),
-                          ),
-                          // Miles column
-                          Expanded(
-                            flex: 1,
-                            child: Text(
-                              '${item.miles.toStringAsFixed(1)}',
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.white),
-                            ),
-                          ),
-                          // Earnings column
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              '\$${item.earnings.toStringAsFixed(2)}',
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.golden),
-                            ),
-                          ),
-                          // Expenses column
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              '\$${item.expenses.toStringAsFixed(2)}',
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.golden),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    final isAlternateRow = index % 2 == 1;
+                    return _buildTableRow(
+                        context, item, isAlternateRow, sessions[index]);
                   },
                 ),
         ),
       ],
     );
+  }
+
+  Widget _buildTableRow(BuildContext context, InsightEntry item,
+      bool isAlternateRow, TrackingSession session) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: isAlternateRow
+            ? AppColorToken.black.value.withAlpha(40)
+            : AppColorToken.black.value.withAlpha(60),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColorToken.golden.value.withAlpha(20),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Main row content
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Date and Time Column - Combined for better readability
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.date,
+                        style: AppTextStyle.size(16)
+                            .medium
+                            .withColor(AppColorToken.white),
+                      ),
+                      4.verticalSpace,
+                      Text(
+                        item.time,
+                        style: AppTextStyle.size(14).regular.withColor(
+                            AppColorToken.white..color.withAlpha(180)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Financial details
+                Expanded(
+                  flex: 5,
+                  child: Row(
+                    children: [
+                      // Miles + Hours column
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.directions_car_outlined,
+                                  color: AppColorToken.golden.value,
+                                  size: 14,
+                                ),
+                                4.horizontalSpace,
+                                Text(
+                                  '${item.miles.toStringAsFixed(1)} mi',
+                                  style: AppTextStyle.size(14)
+                                      .regular
+                                      .withColor(AppColorToken.white),
+                                ),
+                              ],
+                            ),
+                            6.verticalSpace,
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time_outlined,
+                                  color: AppColorToken.golden.value,
+                                  size: 14,
+                                ),
+                                4.horizontalSpace,
+                                Text(
+                                  '${item.hours.toStringAsFixed(1)} hrs',
+                                  style: AppTextStyle.size(14)
+                                      .regular
+                                      .withColor(AppColorToken.white),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Earnings + Expenses column
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.arrow_upward,
+                                  color: Colors.green,
+                                  size: 14,
+                                ),
+                                4.horizontalSpace,
+                                Text(
+                                  '\$${item.earnings.toStringAsFixed(2)}',
+                                  style: AppTextStyle.size(14)
+                                      .medium
+                                      .withColor(AppColorToken.green),
+                                ),
+                              ],
+                            ),
+                            6.verticalSpace,
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.arrow_downward,
+                                  color: AppColorToken.red.value,
+                                  size: 14,
+                                ),
+                                4.horizontalSpace,
+                                Text(
+                                  '\$${item.expenses.toStringAsFixed(2)}',
+                                  style: AppTextStyle.size(14)
+                                      .medium
+                                      .withColor(AppColorToken.red),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Actions column
+                Container(
+                  width: 38,
+                  child: PopupMenuButton(
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: AppColorToken.golden.value,
+                    ),
+                    color: AppColorToken.black.value,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: AppColorToken.golden.value.withAlpha(50),
+                      ),
+                    ),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              color: AppColorToken.golden.value,
+                              size: 18,
+                            ),
+                            8.horizontalSpace,
+                            Text(
+                              'Edit',
+                              style: AppTextStyle.size(14)
+                                  .regular
+                                  .withColor(AppColorToken.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outlined,
+                              color: Colors.redAccent,
+                              size: 18,
+                            ),
+                            8.horizontalSpace,
+                            Text(
+                              'Delete',
+                              style: AppTextStyle.size(14)
+                                  .regular
+                                  .withColor(AppColorToken.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _showEditDialog(context, item, session);
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmation(context, session);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Net row - shows the net earnings
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColorToken.black.value.withAlpha(100),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Net:',
+                  style: AppTextStyle.size(14)
+                      .regular
+                      .withColor(AppColorToken.white..color.withAlpha(150)),
+                ),
+                8.horizontalSpace,
+                Text(
+                  '\$${(item.earnings - item.expenses).toStringAsFixed(2)}',
+                  style: AppTextStyle.size(16)
+                      .bold
+                      .withColor(AppColorToken.golden),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(
+      BuildContext context, InsightEntry entry, TrackingSession session) {
+    // Controllers for the text fields
+    final milesController = TextEditingController(text: entry.miles.toString());
+    final hoursController = TextEditingController(text: entry.hours.toString());
+    final earningsController =
+        TextEditingController(text: entry.earnings.toString());
+    final expensesController =
+        TextEditingController(text: entry.expenses.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColorToken.black.value,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColorToken.golden.value.withAlpha(50),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
+                    color: AppColorToken.golden.value,
+                    size: 20,
+                  ),
+                  12.horizontalSpace,
+                  Text(
+                    'Edit Entry',
+                    style: AppTextStyle.size(18)
+                        .bold
+                        .withColor(AppColorToken.golden),
+                  ),
+                ],
+              ),
+              16.verticalSpace,
+
+              // Date and time info (non-editable)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColorToken.black.value.withAlpha(50),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColorToken.white.value.withAlpha(30),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Date: ${entry.date}',
+                      style: AppTextStyle.size(14)
+                          .medium
+                          .withColor(AppColorToken.white),
+                    ),
+                    8.verticalSpace,
+                    Text(
+                      'Time: ${entry.time}',
+                      style: AppTextStyle.size(14)
+                          .medium
+                          .withColor(AppColorToken.white),
+                    ),
+                  ],
+                ),
+              ),
+              20.verticalSpace,
+
+              // Editable fields
+              // Miles field
+              _buildEditField(
+                context: context,
+                label: 'Miles',
+                controller: milesController,
+                icon: Icons.directions_car_outlined,
+                keyboardType: TextInputType.number,
+              ),
+              12.verticalSpace,
+
+              // Hours field
+              _buildEditField(
+                context: context,
+                label: 'Hours',
+                controller: hoursController,
+                icon: Icons.access_time_outlined,
+                keyboardType: TextInputType.number,
+              ),
+              12.verticalSpace,
+
+              // Earnings field
+              _buildEditField(
+                context: context,
+                label: 'Earnings (\$)',
+                controller: earningsController,
+                icon: Icons.attach_money,
+                keyboardType: TextInputType.number,
+              ),
+              12.verticalSpace,
+
+              // Expenses field
+              _buildEditField(
+                context: context,
+                label: 'Expenses (\$)',
+                controller: expensesController,
+                icon: Icons.receipt_long,
+                keyboardType: TextInputType.number,
+              ),
+              24.verticalSpace,
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: AppButton(
+                      text: 'Cancel',
+                      onPressed: () => Navigator.pop(context),
+                      backgroundColor: Colors.grey[800],
+                      height: 48,
+                    ),
+                  ),
+                  16.horizontalSpace,
+                  Expanded(
+                    child: AppButton(
+                      text: 'Save',
+                      onPressed: () {
+                        // Parse the entered values
+                        final miles = double.tryParse(milesController.text) ??
+                            entry.miles;
+                        final hours = double.tryParse(hoursController.text) ??
+                            entry.hours;
+                        final earnings =
+                            double.tryParse(earningsController.text) ??
+                                entry.earnings;
+                        final expenses =
+                            double.tryParse(expensesController.text) ??
+                                entry.expenses;
+
+                        // Update the session with the new values
+                        _updateSession(
+                          session,
+                          miles: miles,
+                          hours: hours,
+                          earnings: earnings,
+                          expenses: expenses,
+                        );
+
+                        Navigator.pop(context);
+                      },
+                      height: 48,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required TextInputType keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyle.size(12)
+              .medium
+              .withColor(AppColorToken.white..color.withAlpha(180)),
+        ),
+        6.verticalSpace,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColorToken.black.value.withAlpha(30),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColorToken.white.value.withAlpha(30),
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            style: AppTextStyle.size(16).regular.withColor(AppColorToken.white),
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                icon,
+                color: AppColorToken.golden.value,
+                size: 18,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, TrackingSession session) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColorToken.black.value,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColorToken.golden.value.withAlpha(50)),
+        ),
+        title: Text(
+          'Delete Entry',
+          style: AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+        ),
+        content: Text(
+          'Are you sure you want to delete this entry? This action cannot be undone.',
+          style: AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style:
+                  AppTextStyle.size(14).medium.withColor(AppColorToken.white),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              _deleteSession(session);
+              Navigator.pop(context);
+            },
+            child: Text(
+              'Delete',
+              style: AppTextStyle.size(14).medium.withColor(AppColorToken.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Update the session with new values
+  void _updateSession(
+    TrackingSession session, {
+    required double miles,
+    required double hours,
+    required double earnings,
+    required double expenses,
+  }) {
+    // In a real app, you would call your repository to update the session
+    // For now, we'll log the changes
+    debugPrint('Updating session: ${session.id}');
+    debugPrint(
+        'New values: miles=$miles, hours=$hours, earnings=$earnings, expenses=$expenses');
+
+    // Update the session in the tracking state
+    final updatedSession = session.copyWith(
+      miles: miles,
+      durationInSeconds: (hours * 3600).round(),
+      earnings: earnings,
+      expenses: expenses,
+    );
+
+    // This would be an actual call to update the repository
+    // trackingRepository.updateSession(updatedSession);
+
+    // Refresh insights to show the updated data
+    ref.read(trackingNotifierProvider.notifier).refreshInsights();
+  }
+
+  // Delete the session
+  void _deleteSession(TrackingSession session) {
+    // In a real app, you would call your repository to delete the session
+    debugPrint('Deleting session: ${session.id}');
+
+    // This would be an actual call to delete from the repository
+    // trackingRepository.deleteSession(session.id);
+
+    // Refresh insights to update the list
+    ref.read(trackingNotifierProvider.notifier).refreshInsights();
   }
 
   Widget _buildEmptyState() {

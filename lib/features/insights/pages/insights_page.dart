@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
+import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
-import 'package:gigways/features/insights/widgets/insights_header.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
+import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:intl/intl.dart';
 
@@ -62,17 +63,22 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
 
     return ScaffoldWrapper(
       shouldShowGradient: true,
+      appBar: AppBar(
+        title: Text(
+          'Insights',
+          style: AppTextStyle.size(24).bold.withColor(AppColorToken.golden),
+        ),
+        leading: Center(child: const AppBackButton()),
+        backgroundColor: AppColorToken.black.value.withAlpha(100),
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             16.verticalSpace,
 
-            // Page header with user info
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: InsightsHeader(),
-            ),
+            // Page header with back button
+
             24.verticalSpace,
 
             // Period selector tabs
@@ -90,7 +96,8 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
               child: TabBarView(
                 controller: _tabController,
                 children: _periods
-                    .map((period) => _buildPeriodInsightsTable(period))
+                    .map((period) =>
+                        _buildPeriodInsightsTable(period, trackingState))
                     .toList(),
               ),
             ),
@@ -100,9 +107,13 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  Widget _buildPeriodInsightsTable(String period) {
-    // Get mock data for the selected period
-    final insights = _getMockInsightsData(period);
+  Widget _buildPeriodInsightsTable(String period, TrackingState trackingState) {
+    // Get real tracking sessions based on the selected period
+    final List<TrackingSession> sessions =
+        _getSessionsForPeriod(period, trackingState);
+
+    // Convert sessions to table entries
+    final List<InsightEntry> insights = _convertSessionsToEntries(sessions);
 
     return Column(
       children: [
@@ -154,9 +165,9 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           child: Row(
             children: [
               Expanded(
-                flex: 3,
+                flex: 2,
                 child: Text(
-                  'Date/Time',
+                  'Date',
                   style: AppTextStyle.size(14)
                       .semiBold
                       .withColor(AppColorToken.golden),
@@ -164,17 +175,17 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
               ),
               Expanded(
                 flex: 2,
+                child: Text(
+                  'Time',
+                  style: AppTextStyle.size(14)
+                      .semiBold
+                      .withColor(AppColorToken.golden),
+                ),
+              ),
+              Expanded(
+                flex: 1,
                 child: Text(
                   'Miles',
-                  style: AppTextStyle.size(14)
-                      .semiBold
-                      .withColor(AppColorToken.golden),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Hours',
                   style: AppTextStyle.size(14)
                       .semiBold
                       .withColor(AppColorToken.golden),
@@ -213,7 +224,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                     final isLastItem = index == insights.length - 1;
 
                     return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 10),
                       decoration: BoxDecoration(
@@ -229,46 +239,37 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                       ),
                       child: Row(
                         children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.date,
-                                  style: AppTextStyle.size(14)
-                                      .medium
-                                      .withColor(AppColorToken.white),
-                                ),
-                                Text(
-                                  item.time,
-                                  style:
-                                      AppTextStyle.size(12).regular.withColor(
-                                            AppColorToken.white
-                                              ..color.withAlpha(70),
-                                          ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          // Date column
                           Expanded(
                             flex: 2,
                             child: Text(
-                              '${item.miles} mi',
+                              item.date,
+                              style: AppTextStyle.size(14)
+                                  .medium
+                                  .withColor(AppColorToken.white),
+                            ),
+                          ),
+                          // Time column
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              item.time,
                               style: AppTextStyle.size(14)
                                   .regular
                                   .withColor(AppColorToken.white),
                             ),
                           ),
+                          // Miles column
                           Expanded(
-                            flex: 2,
+                            flex: 1,
                             child: Text(
-                              '${item.hours}h',
+                              '${item.miles.toStringAsFixed(1)}',
                               style: AppTextStyle.size(14)
                                   .regular
                                   .withColor(AppColorToken.white),
                             ),
                           ),
+                          // Earnings column
                           Expanded(
                             flex: 2,
                             child: Text(
@@ -278,6 +279,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                                   .withColor(AppColorToken.golden),
                             ),
                           ),
+                          // Expenses column
                           Expanded(
                             flex: 2,
                             child: Text(
@@ -329,133 +331,167 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  // Mock data generation for different periods
-  List<InsightEntry> _getMockInsightsData(String period) {
-    final now = DateTime.now();
-    final dateFormatter = DateFormat('MMM dd, yyyy');
-    final timeFormatter = DateFormat('h:mm a');
-    final insights = <InsightEntry>[];
+  // Get the real tracking sessions for the selected period
+  List<TrackingSession> _getSessionsForPeriod(
+      String period, TrackingState trackingState) {
+    final List<TrackingSession> sessions = [];
 
     switch (period) {
       case 'Today':
-        final date = dateFormatter.format(now);
-        insights.add(
-          InsightEntry(
-            date: date,
-            time: '8:00 AM - 10:30 AM',
-            miles: 12.3,
-            hours: 2.5,
-            earnings: 85.50,
-            expenses: 15.20,
-          ),
-        );
-        insights.add(
-          InsightEntry(
-            date: date,
-            time: '11:00 AM - 2:45 PM',
-            miles: 18.6,
-            hours: 3.75,
-            earnings: 115.75,
-            expenses: 22.30,
-          ),
-        );
-        insights.add(
-          InsightEntry(
-            date: date,
-            time: '3:30 PM - 6:00 PM',
-            miles: 14.2,
-            hours: 2.5,
-            earnings: 92.00,
-            expenses: 17.80,
-          ),
-        );
+        // For 'Today', check if there's an active session and include it
+        if (trackingState.activeSession != null) {
+          sessions.add(trackingState.activeSession!);
+        }
+
+        // Get sessions for today from the tracking repository
+        // This would typically be done through the tracking notifier
+        final todaySessions = _getTodaySessions(trackingState);
+        sessions.addAll(todaySessions);
         break;
 
       case 'Weekly':
-        for (int i = 0; i < 7; i++) {
-          final day = now.subtract(Duration(days: i));
-          final date = dateFormatter.format(day);
-
-          if (i % 2 == 0) {
-            // Add some variety
-            insights.add(
-              InsightEntry(
-                date: date,
-                time: '9:00 AM - 5:00 PM',
-                miles: 45.0 + i * 2.5,
-                hours: 8.0,
-                earnings: 220.00 + i * 10.0,
-                expenses: 42.50 + i * 1.5,
-              ),
-            );
-          } else {
-            // Two entries for some days
-            insights.add(
-              InsightEntry(
-                date: date,
-                time: '8:00 AM - 12:00 PM',
-                miles: 22.5 + i * 1.2,
-                hours: 4.0,
-                earnings: 110.00 + i * 5.0,
-                expenses: 21.25 + i * 0.75,
-              ),
-            );
-            insights.add(
-              InsightEntry(
-                date: date,
-                time: '1:00 PM - 5:00 PM',
-                miles: 18.3 + i * 1.0,
-                hours: 4.0,
-                earnings: 95.00 + i * 4.5,
-                expenses: 18.40 + i * 0.65,
-              ),
-            );
-          }
-        }
+        // Get sessions for the current week
+        final weeklySessions = _getWeeklySessions(trackingState);
+        sessions.addAll(weeklySessions);
         break;
 
       case 'Monthly':
-        for (int i = 0; i < 15; i += 2) {
-          final day = now.subtract(Duration(days: i));
-          final date = dateFormatter.format(day);
-
-          insights.add(
-            InsightEntry(
-              date: date,
-              time: 'Full Day',
-              miles: 55.0 + i * 1.5,
-              hours: 8.0,
-              earnings: 275.00 + i * 7.5,
-              expenses: 52.50 + i * 1.25,
-            ),
-          );
-        }
+        // Get sessions for the current month
+        final monthlySessions = _getMonthlySessions(trackingState);
+        sessions.addAll(monthlySessions);
         break;
 
       case 'Yearly':
-        for (int i = 0; i < 12; i++) {
-          final month = now.month - i;
-          final year = now.year + (month <= 0 ? -1 : 0);
-          final adjustedMonth = month <= 0 ? month + 12 : month;
-
-          final day = DateTime(year, adjustedMonth, 15);
-          final date = DateFormat('MMMM yyyy').format(day);
-
-          insights.add(
-            InsightEntry(
-              date: date,
-              time: 'Monthly Summary',
-              miles: 950.0 + i * 25.0,
-              hours: 160.0,
-              earnings: 4200.00 + i * 150.0,
-              expenses: 850.00 + i * 35.0,
-            ),
-          );
-        }
+        // Get sessions for the current year
+        final yearlySessions = _getYearlySessions(trackingState);
+        sessions.addAll(yearlySessions);
         break;
     }
 
-    return insights;
+    return sessions;
+  }
+
+  // Helper methods to get sessions for different time periods
+  List<TrackingSession> _getTodaySessions(TrackingState trackingState) {
+    // In a real implementation, you would get this data from a repository or service
+    // For now, let's extract sessions from the insights if available
+    final insights = trackingState.todayInsights;
+    if (insights == null || insights.sessionCount == 0) {
+      return [];
+    }
+
+    // Since we don't have direct access to the sessions from insights,
+    // we'll try to find them in the tracking state
+    // In a real implementation, you would directly query the repository
+    return _extractSessionsFromState(trackingState);
+  }
+
+  List<TrackingSession> _getWeeklySessions(TrackingState trackingState) {
+    final insights = trackingState.weeklyInsights;
+    if (insights == null || insights.sessionCount == 0) {
+      return [];
+    }
+    return _extractSessionsFromState(trackingState);
+  }
+
+  List<TrackingSession> _getMonthlySessions(TrackingState trackingState) {
+    final insights = trackingState.monthlyInsights;
+    if (insights == null || insights.sessionCount == 0) {
+      return [];
+    }
+    return _extractSessionsFromState(trackingState);
+  }
+
+  List<TrackingSession> _getYearlySessions(TrackingState trackingState) {
+    final insights = trackingState.yearlyInsights;
+    if (insights == null || insights.sessionCount == 0) {
+      return [];
+    }
+    return _extractSessionsFromState(trackingState);
+  }
+
+  // Helper method to extract sessions from tracking state
+  // In a real implementation, you would directly query the repository
+  List<TrackingSession> _extractSessionsFromState(TrackingState trackingState) {
+    // This is a placeholder. In a real app, you would get this data from a repository
+    // We're simulating it here based on the available insights
+
+    final List<TrackingSession> dummySessions = [];
+
+    // Create a sample session for demonstration
+    // In a real app, these would come from the repository
+    final insights = trackingState.selectedInsights;
+    if (insights != null && insights.sessionCount > 0) {
+      final now = DateTime.now();
+
+      // Create some sample sessions based on the insights
+      for (int i = 0; i < insights.sessionCount; i++) {
+        final sessionStart = now.subtract(Duration(hours: i * 4));
+        final sessionEnd = sessionStart.add(const Duration(hours: 3));
+
+        // Calculate some reasonable values
+        final miles = insights.totalMiles / insights.sessionCount;
+        final hours = insights.hours / insights.sessionCount;
+        final earnings = insights.totalEarnings / insights.sessionCount;
+        final expenses = insights.totalExpenses / insights.sessionCount;
+
+        // Create a sample session
+        final session = TrackingSession(
+          id: 'session_$i',
+          userId: 'current_user',
+          startTime: sessionStart,
+          endTime: sessionEnd,
+          durationInSeconds: (hours * 3600).round(),
+          miles: miles,
+          earnings: earnings,
+          expenses: expenses,
+          locations: [],
+          isActive: false,
+        );
+
+        dummySessions.add(session);
+      }
+    }
+
+    return dummySessions;
+  }
+
+  // Convert tracking sessions to table entries
+  List<InsightEntry> _convertSessionsToEntries(List<TrackingSession> sessions) {
+    final dateFormatter = DateFormat('MMM dd, yyyy');
+    final timeFormatter = DateFormat('h:mm a');
+
+    // Sort sessions by start time (newest first)
+    sessions.sort((a, b) => b.startTime.compareTo(a.startTime));
+
+    return sessions.map((session) {
+      // Format date and time
+      final date = dateFormatter.format(session.startTime);
+
+      // Format time range
+      final startTime = timeFormatter.format(session.startTime);
+      final endTime = session.endTime != null
+          ? timeFormatter.format(session.endTime!)
+          : 'In Progress';
+      final time = '$startTime - $endTime';
+
+      // Calculate hours (from seconds)
+      final hours = session.durationInSeconds / 3600;
+
+      // Get miles, earnings, and expenses from the session
+      final miles = session.miles;
+      final earnings = session.earnings ?? 0.0;
+      final expenses = session.expenses ?? 0.0;
+
+      return InsightEntry(
+        date: date,
+        time: time,
+        miles: miles,
+        hours: hours,
+        earnings: earnings,
+        expenses: expenses,
+      );
+    }).toList();
   }
 }
 

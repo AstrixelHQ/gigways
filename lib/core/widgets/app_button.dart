@@ -5,7 +5,7 @@ import 'package:gigways/core/widgets/bouncy.dart';
 class AppButton extends StatelessWidget {
   const AppButton({
     super.key,
-    required this.onPressed,
+    this.onPressed,
     this.height = 56,
     this.width = double.infinity,
     this.disabled = false,
@@ -19,7 +19,7 @@ class AppButton extends StatelessWidget {
 
   final double height;
   final double width;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool disabled;
   final String? text;
   final bool loading;
@@ -44,7 +44,7 @@ class AppButton extends StatelessWidget {
             ? null
             : () {
                 FocusScope.of(context).unfocus();
-                onPressed();
+                onPressed?.call();
               },
         child: Material(
           color: Colors.transparent,
@@ -86,7 +86,7 @@ class AppButton extends StatelessWidget {
                       ? null
                       : () {
                           FocusScope.of(context).unfocus();
-                          onPressed();
+                          onPressed?.call();
                         },
                   splashColor: AppColorToken.white.value.withAlpha(10),
                   highlightColor: AppColorToken.white.value.withAlpha(5),

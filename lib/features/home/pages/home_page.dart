@@ -146,7 +146,7 @@ class HomePage extends ConsumerWidget {
     final expenses = insights?.totalExpenses ?? 0.0;
 
     return GestureDetector(
-      onTap: () => InsightsRoute().push(context), // Navigate to insights page
+      onTap: () => InsightsRoute().push(context),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -159,7 +159,6 @@ class HomePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with filter and arrow to indicate navigation
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -209,7 +208,6 @@ class HomePage extends ConsumerWidget {
                       ),
                     ),
                     12.horizontalSpace,
-                    // Add arrow icon to indicate navigation
                     Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
@@ -221,10 +219,8 @@ class HomePage extends ConsumerWidget {
             ),
             16.verticalSpace,
 
-            // Insights grid - 2 rows, 2 columns
             Row(
               children: [
-                // Miles
                 Expanded(
                   child: _buildInsightCard(
                     icon: Icons.directions_car,
@@ -234,7 +230,6 @@ class HomePage extends ConsumerWidget {
                   ),
                 ),
                 8.horizontalSpace,
-                // Hours
                 Expanded(
                   child: _buildInsightCard(
                     icon: Icons.access_time_filled,

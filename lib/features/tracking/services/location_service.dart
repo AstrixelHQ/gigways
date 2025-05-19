@@ -52,7 +52,7 @@ class LocationService {
     // Configure background geolocation
     await bg.BackgroundGeolocation.ready(bg.Config(
       desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
-      distanceFilter: 10.0, // meters
+      distanceFilter: 10.0,
       stopOnTerminate: false,
       startOnBoot: true,
       debug: false,
@@ -68,20 +68,6 @@ class LocationService {
 
     print('Starting location tracking');
     _isTrackingActive = true;
-
-    // Set up listener for location updates
-    // _locationSubscription = bg.BackgroundGeolocation.onLocation.listen(
-    //   (bg.Location location) {
-    //     final locationPoint = LocationPoint(
-    //       latitude: location.coords.latitude,
-    //       longitude: location.coords.longitude,
-    //       timestamp: DateTime.now(),
-    //     );
-
-    //     _lastLocation = locationPoint;
-    //     _locationController.add(locationPoint);
-    //   },
-    // );
 
     bg.BackgroundGeolocation.onLocation(
       (success) {

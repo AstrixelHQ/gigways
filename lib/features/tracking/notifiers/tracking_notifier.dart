@@ -110,15 +110,17 @@ class TrackingNotifier extends _$TrackingNotifier {
   ActivityType? _lastActivityType;
   DateTime? _lastActivityChangeTime;
   DateTime? _lastLocationUpdateTime;
-  
+
   // Constants
-  static const int _inactivityThresholdMinutes = 5;  // 5 minutes of inactivity
-  static const int _inactivityCheckIntervalSeconds = 60;  // Check every minute
+  static const int _inactivityThresholdMinutes = 5; // 5 minutes of inactivity
+  static const int _inactivityCheckIntervalSeconds = 60; // Check every minute
 
   TrackingRepository get _repository => ref.read(trackingRepositoryProvider);
   LocationService get _locationService => ref.read(locationServiceProvider);
-  NotificationService get _notificationService => ref.read(notificationServiceProvider);
-  DrivingDetectionService get _drivingDetectionService => ref.read(drivingDetectionServiceProvider);
+  NotificationService get _notificationService =>
+      ref.read(notificationServiceProvider);
+  DrivingDetectionService get _drivingDetectionService =>
+      ref.read(drivingDetectionServiceProvider);
 
   @override
   TrackingState build() {
@@ -141,21 +143,22 @@ class TrackingNotifier extends _$TrackingNotifier {
   void _setupAppLifecycleListener() {
     _appLifecycleSubscription?.cancel();
     SystemChannels.lifecycle.setMessageHandler((msg) async {
-      if (msg == AppLifecycleState.inactive.toString() || 
+      if (msg == AppLifecycleState.inactive.toString() ||
           msg == AppLifecycleState.paused.toString()) {
         if (state.status == TrackingStatus.active && !_isHandlingClosure) {
           // Don't stop tracking here, just set a flag to know the app went to background
           _isHandlingClosure = true;
-          
-          // Don't end the session - just make sure we have a notification 
+
+          // Don't end the session - just make sure we have a notification
           // to remind the user that tracking is still active
           _showTrackingActiveNotification();
         }
       } else if (msg == AppLifecycleState.resumed.toString()) {
         _isHandlingClosure = false;
-        
+
         // Remove any background tracking notifications when app is resumed
-        _notificationService.cancel(102); // ID for background tracking notification
+        _notificationService
+            .cancel(102); // ID for background tracking notification
       }
       return null;
     });
@@ -165,7 +168,7 @@ class TrackingNotifier extends _$TrackingNotifier {
   void _showTrackingActiveNotification() {
     // Only show if we have an active session
     if (state.activeSession == null) return;
-    
+
     _notificationService.show(
       NotificationData(
         id: 102, // Fixed ID for background tracking notification
@@ -218,8 +221,6 @@ class TrackingNotifier extends _$TrackingNotifier {
         currentLocations: [],
       );
 
-      // Refresh insights
-      await refreshInsights();
     } catch (e) {
       debugPrint('Error handling app closure: $e');
     }
@@ -261,9 +262,6 @@ class TrackingNotifier extends _$TrackingNotifier {
         await _resumeTracking(activeSession);
       }
 
-      // Load insights
-      await refreshInsights();
-
       state = state.copyWith(
         status: activeSession != null
             ? TrackingStatus.active
@@ -294,7 +292,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     try {
       // Disable driving detection notifications while tracking is active
       _drivingDetectionService.setDetectionEnabled(false);
-      
+
       // Cancel any inactivity notifications that might be showing
       _notificationService.cancel(104); // ID for inactivity notification
 
@@ -335,7 +333,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     } catch (e) {
       // Re-enable driving detection on error
       _drivingDetectionService.setDetectionEnabled(true);
-      
+
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: e.toString(),
@@ -348,7 +346,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     try {
       // Disable driving detection notifications while tracking is active
       _drivingDetectionService.setDetectionEnabled(false);
-      
+
       // Cancel any inactivity notifications that might be showing
       _notificationService.cancel(104); // ID for inactivity notification
 
@@ -376,7 +374,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     } catch (e) {
       // Re-enable driving detection on error
       _drivingDetectionService.setDetectionEnabled(true);
-      
+
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: e.toString(),
@@ -449,39 +447,39 @@ class TrackingNotifier extends _$TrackingNotifier {
       );
     });
   }
-  
+
   // Set up inactivity detection
   void _setupInactivityDetection() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer.periodic(
-      Duration(seconds: _inactivityCheckIntervalSeconds), 
-      (_) => _checkInactivity()
-    );
+        Duration(seconds: _inactivityCheckIntervalSeconds),
+        (_) => _checkInactivity());
   }
-  
+
   // Check for inactivity
   void _checkInactivity() {
-    if (state.status != TrackingStatus.active || 
+    if (state.status != TrackingStatus.active ||
         _lastLocationUpdateTime == null) {
       return;
     }
-    
+
     final now = DateTime.now();
     final inactivityDuration = now.difference(_lastLocationUpdateTime!);
-    
+
     // If inactive for threshold duration (4-5 minutes)
     if (inactivityDuration.inMinutes >= _inactivityThresholdMinutes) {
       _notifyInactivity();
     }
   }
-  
+
   // Notify user of inactivity
   void _notifyInactivity() {
     _notificationService.show(
       NotificationData(
         id: 104, // Fixed ID for inactivity notification
         title: 'Are You Still Driving?',
-        body: 'We haven\'t detected movement for ${_inactivityThresholdMinutes} minutes. Tap to end tracking if you\'ve stopped driving.',
+        body:
+            'We haven\'t detected movement for ${_inactivityThresholdMinutes} minutes. Tap to end tracking if you\'ve stopped driving.',
         channel: NotificationChannel.driving,
         payload: 'inactivity_detected',
         autoCancel: false,
@@ -512,7 +510,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     _trackingTimer?.cancel();
     _locationSubscription?.cancel();
     _inactivityTimer?.cancel();
-    
+
     // Cancel any ongoing notifications
     _notificationService.cancel(102); // Background tracking notification
     _notificationService.cancel(104); // Inactivity notification
@@ -557,9 +555,6 @@ class TrackingNotifier extends _$TrackingNotifier {
         expenses: expenses,
       );
 
-      // Refresh insights
-      await refreshInsights();
-      
       // Cancel any ongoing notifications
       _notificationService.cancel(102); // Background tracking notification
       _notificationService.cancel(104); // Inactivity notification
@@ -586,46 +581,13 @@ class TrackingNotifier extends _$TrackingNotifier {
     await endShift();
   }
 
-  // Refresh insights for all periods
-  Future<void> refreshInsights() async {
-    final authState = ref.read(authNotifierProvider);
-    if (authState.user == null) return;
-
-    final userId = authState.user!.uid;
-
-    try {
-      // Get sessions for different periods
-      final todaySessions = await _repository.getSessionsForToday(userId);
-      final weekSessions = await _repository.getSessionsForWeek(userId);
-      final monthSessions = await _repository.getSessionsForMonth(userId);
-      final yearSessions = await _repository.getSessionsForYear(userId);
-
-      // Calculate insights
-      final todayInsights = TrackingInsights.fromSessions(todaySessions);
-      final weeklyInsights = TrackingInsights.fromSessions(weekSessions);
-      final monthlyInsights = TrackingInsights.fromSessions(monthSessions);
-      final yearlyInsights = TrackingInsights.fromSessions(yearSessions);
-
-      // Update state
-      state = state.copyWith(
-        todayInsights: todayInsights,
-        weeklyInsights: weeklyInsights,
-        monthlyInsights: monthlyInsights,
-        yearlyInsights: yearlyInsights,
-      );
-    } catch (e) {
-      debugPrint('Error refreshing insights: $e');
-    }
-  }
-
-  // Change selected insight period
   void setInsightPeriod(String period) {
     state = state.copyWith(selectedInsightPeriod: period);
   }
 
   void _setupActivityRecognition() {
     _activitySubscription?.cancel();
-    
+
     // We're using the activity stream from LocationService to avoid duplicate subscriptions
     _activitySubscription =
         _locationService.activityStream.listen(_handleActivityChange);
@@ -642,7 +604,7 @@ class TrackingNotifier extends _$TrackingNotifier {
     // If the user is STILL, we need to monitor this for inactivity
     // If they're DRIVING, we reset the inactivity timer
     if (event.type == ActivityType.IN_VEHICLE) {
-      _lastLocationUpdateTime = now; // Reset inactivity timer when driving is detected
+      _lastLocationUpdateTime = now;
     }
   }
 }

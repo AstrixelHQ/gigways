@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
-import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/insights/models/insight_entry.dart';
 import 'package:gigways/features/insights/widgets/edit_entry_bottom_sheet.dart';
-import 'package:gigways/features/insights/widgets/number_selector_wheel.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
@@ -41,11 +38,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
       ref
           .read(trackingNotifierProvider.notifier)
           .setInsightPeriod(selectedPeriod);
-    });
-
-    // Refresh insights data when the page loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(trackingNotifierProvider.notifier).refreshInsights();
     });
   }
 
@@ -481,12 +473,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
       earnings: earnings,
       expenses: expenses,
     );
-
-    // This would be an actual call to update the repository
-    // trackingRepository.updateSession(updatedSession);
-
-    // Refresh insights to show the updated data
-    ref.read(trackingNotifierProvider.notifier).refreshInsights();
   }
 
   // Delete the session
@@ -496,9 +482,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
 
     // This would be an actual call to delete from the repository
     // trackingRepository.deleteSession(session.id);
-
-    // Refresh insights to update the list
-    ref.read(trackingNotifierProvider.notifier).refreshInsights();
   }
 
   Widget _buildEmptyState() {

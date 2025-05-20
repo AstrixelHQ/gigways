@@ -7,6 +7,7 @@ import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/insights/models/insight_entry.dart';
 import 'package:gigways/features/insights/models/insight_period.dart';
 import 'package:gigways/features/insights/notifiers/insight_notifier.dart';
+import 'package:gigways/features/insights/widgets/delete_confirmation_dialog.dart';
 import 'package:gigways/features/insights/widgets/edit_entry_bottom_sheet.dart';
 import 'package:gigways/features/insights/widgets/insight_section.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
@@ -34,7 +35,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
-    // Listen for tab changes to update the period in the tracking notifier
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
 
@@ -380,7 +380,14 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                         EditEntryBottomSheet.show(
                             context, item, session, _updateSession);
                       } else if (value == 'delete') {
-                        _showDeleteConfirmation(context, session);
+                        DeleteConfirmationDialog.show(
+                          context,
+                          'Delete Entry',
+                          'Are you sure you want to delete this entry? This action cannot be undone.',
+                          onDelete: () {
+                            // TODO: Add delete
+                          },
+                        );
                       }
                     },
                   ),
@@ -423,47 +430,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, TrackingSession session) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColorToken.black.value,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppColorToken.golden.value.withAlpha(50)),
-        ),
-        title: Text(
-          'Delete Entry',
-          style: AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
-        ),
-        content: Text(
-          'Are you sure you want to delete this entry? This action cannot be undone.',
-          style: AppTextStyle.size(14).regular.withColor(AppColorToken.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style:
-                  AppTextStyle.size(14).medium.withColor(AppColorToken.white),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              _deleteSession(session);
-              Navigator.pop(context);
-            },
-            child: Text(
-              'Delete',
-              style: AppTextStyle.size(14).medium.withColor(AppColorToken.red),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Update the session with new values
   void _updateSession(
     TrackingSession session, {
@@ -485,15 +451,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
       earnings: earnings,
       expenses: expenses,
     );
-  }
-
-  // Delete the session
-  void _deleteSession(TrackingSession session) {
-    // In a real app, you would call your repository to delete the session
-    debugPrint('Deleting session: ${session.id}');
-
-    // This would be an actual call to delete from the repository
-    // trackingRepository.deleteSession(session.id);
   }
 
   Widget _buildEmptyState() {

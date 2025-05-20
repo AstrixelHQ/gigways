@@ -141,4 +141,8 @@ class InsightNotifier extends _$InsightNotifier {
       sessionCount: sessions.length,
     );
   }
+
+  // TODO: Update Insights
+
+  // TODO: delete insights
 }

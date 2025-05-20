@@ -5,7 +5,10 @@ import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/insights/models/insight_entry.dart';
+import 'package:gigways/features/insights/models/insight_period.dart';
+import 'package:gigways/features/insights/notifiers/insight_notifier.dart';
 import 'package:gigways/features/insights/widgets/edit_entry_bottom_sheet.dart';
+import 'package:gigways/features/insights/widgets/insight_section.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
@@ -23,7 +26,8 @@ class InsightsPage extends ConsumerStatefulWidget {
 class _InsightsPageState extends ConsumerState<InsightsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _periods = ['Today', 'Weekly', 'Monthly', 'Yearly'];
+  final List<String> _periods =
+      InsightPeriod.values.map((period) => period.displayName).toList();
 
   @override
   void initState() {
@@ -35,9 +39,8 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
       if (_tabController.indexIsChanging) return;
 
       final selectedPeriod = _periods[_tabController.index];
-      ref
-          .read(trackingNotifierProvider.notifier)
-          .setInsightPeriod(selectedPeriod);
+      ref.read(selectedInsightProvider.notifier).state =
+          InsightPeriod.fromString(selectedPeriod);
     });
   }
 
@@ -49,11 +52,11 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
 
   @override
   Widget build(BuildContext context) {
+    final selectedPeriod = ref.watch(selectedInsightProvider);
     final trackingState = ref.watch(trackingNotifierProvider);
-    final selectedPeriod = trackingState.selectedInsightPeriod;
 
     // Set tab controller index based on selected period
-    final periodIndex = _periods.indexOf(selectedPeriod);
+    final periodIndex = _periods.indexOf(selectedPeriod.displayName);
     if (periodIndex != -1 && _tabController.index != periodIndex) {
       _tabController.animateTo(periodIndex);
     }
@@ -99,8 +102,8 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
               child: TabBarView(
                 controller: _tabController,
                 children: _periods
-                    .map((period) =>
-                        _buildPeriodInsightsTable(period, trackingState))
+                    .map((period) => _buildPeriodInsightsTable(
+                        period, trackingState, selectedPeriod))
                     .toList(),
               ),
             ),
@@ -110,13 +113,12 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  Widget _buildPeriodInsightsTable(String period, TrackingState trackingState) {
+  Widget _buildPeriodInsightsTable(String period, TrackingState trackingState,
+      InsightPeriod selectedPeriod) {
     // Get real tracking sessions based on the selected period
-    final List<TrackingSession> sessions =
-        _getSessionsForPeriod(period, trackingState);
-
-    // Convert sessions to table entries
-    final List<InsightEntry> insights = _convertSessionsToEntries(sessions);
+    final insight = ref.watch(insightNotifierProvider(selectedPeriod));
+    final sessions = insight.sessions;
+    final insights = _convertSessionsToEntries([...?sessions]);
 
     return Column(
       children: [
@@ -143,7 +145,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                   ),
                 ),
                 child: Text(
-                  '${insights.length} entries',
+                  '${sessions?.length ?? 0} entries',
                   style: AppTextStyle.size(12)
                       .medium
                       .withColor(AppColorToken.white),
@@ -155,17 +157,27 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
 
         // Table content
         Expanded(
-          child: insights.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  itemCount: insights.length,
-                  itemBuilder: (context, index) {
-                    final item = insights[index];
-                    final isAlternateRow = index % 2 == 1;
-                    return _buildTableRow(
-                        context, item, isAlternateRow, sessions[index]);
-                  },
+          child: (() {
+            if (insight.isLoading) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: AppColorToken.golden.color,
                 ),
+              );
+            } else if (sessions == null || sessions.isEmpty) {
+              return _buildEmptyState();
+            } else {
+              return ListView.builder(
+                itemCount: insights.length,
+                itemBuilder: (context, index) {
+                  final item = insights[index];
+                  final isAlternateRow = index % 2 == 1;
+                  return _buildTableRow(
+                      context, item, isAlternateRow, sessions[index]);
+                },
+              );
+            }
+          })(),
         ),
       ],
     );
@@ -514,131 +526,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
         ),
       ),
     );
-  }
-
-  // Get the real tracking sessions for the selected period
-  List<TrackingSession> _getSessionsForPeriod(
-      String period, TrackingState trackingState) {
-    final List<TrackingSession> sessions = [];
-
-    switch (period) {
-      case 'Today':
-        // For 'Today', check if there's an active session and include it
-        if (trackingState.activeSession != null) {
-          sessions.add(trackingState.activeSession!);
-        }
-
-        // Get sessions for today from the tracking repository
-        // This would typically be done through the tracking notifier
-        final todaySessions = _getTodaySessions(trackingState);
-        sessions.addAll(todaySessions);
-        break;
-
-      case 'Weekly':
-        // Get sessions for the current week
-        final weeklySessions = _getWeeklySessions(trackingState);
-        sessions.addAll(weeklySessions);
-        break;
-
-      case 'Monthly':
-        // Get sessions for the current month
-        final monthlySessions = _getMonthlySessions(trackingState);
-        sessions.addAll(monthlySessions);
-        break;
-
-      case 'Yearly':
-        // Get sessions for the current year
-        final yearlySessions = _getYearlySessions(trackingState);
-        sessions.addAll(yearlySessions);
-        break;
-    }
-
-    return sessions;
-  }
-
-  // Helper methods to get sessions for different time periods
-  List<TrackingSession> _getTodaySessions(TrackingState trackingState) {
-    // In a real implementation, you would get this data from a repository or service
-    // For now, let's extract sessions from the insights if available
-    final insights = trackingState.todayInsights;
-    if (insights == null || insights.sessionCount == 0) {
-      return [];
-    }
-
-    // Since we don't have direct access to the sessions from insights,
-    // we'll try to find them in the tracking state
-    // In a real implementation, you would directly query the repository
-    return _extractSessionsFromState(trackingState);
-  }
-
-  List<TrackingSession> _getWeeklySessions(TrackingState trackingState) {
-    final insights = trackingState.weeklyInsights;
-    if (insights == null || insights.sessionCount == 0) {
-      return [];
-    }
-    return _extractSessionsFromState(trackingState);
-  }
-
-  List<TrackingSession> _getMonthlySessions(TrackingState trackingState) {
-    final insights = trackingState.monthlyInsights;
-    if (insights == null || insights.sessionCount == 0) {
-      return [];
-    }
-    return _extractSessionsFromState(trackingState);
-  }
-
-  List<TrackingSession> _getYearlySessions(TrackingState trackingState) {
-    final insights = trackingState.yearlyInsights;
-    if (insights == null || insights.sessionCount == 0) {
-      return [];
-    }
-    return _extractSessionsFromState(trackingState);
-  }
-
-  // Helper method to extract sessions from tracking state
-  // In a real implementation, you would directly query the repository
-  List<TrackingSession> _extractSessionsFromState(TrackingState trackingState) {
-    // This is a placeholder. In a real app, you would get this data from a repository
-    // We're simulating it here based on the available insights
-
-    final List<TrackingSession> dummySessions = [];
-
-    // Create a sample session for demonstration
-    // In a real app, these would come from the repository
-    final insights = trackingState.selectedInsights;
-    if (insights != null && insights.sessionCount > 0) {
-      final now = DateTime.now();
-
-      // Create some sample sessions based on the insights
-      for (int i = 0; i < insights.sessionCount; i++) {
-        final sessionStart = now.subtract(Duration(hours: i * 4));
-        final sessionEnd = sessionStart.add(const Duration(hours: 3));
-
-        // Calculate some reasonable values
-        final miles = insights.totalMiles / insights.sessionCount;
-        final hours = insights.hours / insights.sessionCount;
-        final earnings = insights.totalEarnings / insights.sessionCount;
-        final expenses = insights.totalExpenses / insights.sessionCount;
-
-        // Create a sample session
-        final session = TrackingSession(
-          id: 'session_$i',
-          userId: 'current_user',
-          startTime: sessionStart,
-          endTime: sessionEnd,
-          durationInSeconds: (hours * 3600).round(),
-          miles: miles,
-          earnings: earnings,
-          expenses: expenses,
-          locations: [],
-          isActive: false,
-        );
-
-        dummySessions.add(session);
-      }
-    }
-
-    return dummySessions;
   }
 
   // Convert tracking sessions to table entries

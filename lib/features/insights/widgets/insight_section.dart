@@ -36,7 +36,10 @@ class _InsightSectionState extends ConsumerState<InsightSection> {
     ref.listen(
       selectedInsightProvider,
       (previous, next) {
-        ref.read(insightNotifierProvider(next).notifier).fetchInsights();
+        final insightProviderExists = ref.exists(insightNotifierProvider(next));
+        if (!insightProviderExists) {
+          ref.read(insightNotifierProvider(next).notifier).fetchInsights();
+        }
       },
     );
 

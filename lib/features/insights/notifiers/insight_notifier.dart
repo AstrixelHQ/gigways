@@ -142,7 +142,100 @@ class InsightNotifier extends _$InsightNotifier {
     );
   }
 
-  // TODO: Update Insights
+  Future<void> updateInsight(
+    TrackingSession session, {
+    double? miles,
+    int? durationInSeconds,
+    double? earnings,
+    double? expenses,
+  }) async {
+    final auth = FirebaseAuth.instance;
+    final userId = auth.currentUser?.uid;
+    if (userId == null) {
+      state = const InsightState.error('User not authenticated');
+      return;
+    }
 
-  // TODO: delete insights
+    try {
+      // First update the state immediately for responsive UI
+      if (state is _Success) {
+        final currentState = state as _Success;
+
+        // Create updated session
+        final updatedSession = session.copyWith(
+          miles: miles ?? session.miles,
+          durationInSeconds: durationInSeconds ?? session.durationInSeconds,
+          earnings: earnings ?? session.earnings,
+          expenses: expenses ?? session.expenses,
+        );
+
+        // Update session in state
+        final sessions = currentState.sessions.map((s) {
+          if (s.id == session.id) {
+            return updatedSession;
+          }
+          return s;
+        }).toList();
+
+        // Recalculate insights
+        final insights = extractInsights(sessions);
+
+        // Update state immediately
+        state = InsightState.success(
+          sessions: sessions,
+          insights: insights,
+        );
+      }
+
+      // Then update Firestore (don't wait for this to complete before updating UI)
+      _repository.updateSessionData(
+        userId: userId,
+        sessionId: session.id,
+        miles: miles,
+        durationInSeconds: durationInSeconds,
+        earnings: earnings,
+        expenses: expenses,
+      );
+    } catch (e) {
+      state = InsightState.error(e.toString());
+    }
+  }
+
+// Delete an insight from the state and Firestore
+  Future<void> deleteInsight(TrackingSession session) async {
+    final auth = FirebaseAuth.instance;
+    final userId = auth.currentUser?.uid;
+    if (userId == null) {
+      state = const InsightState.error('User not authenticated');
+      return;
+    }
+
+    try {
+      // First update state immediately for responsive UI
+      if (state is _Success) {
+        final currentState = state as _Success;
+
+        // Remove session from state
+        final sessions =
+            currentState.sessions.where((s) => s.id != session.id).toList();
+
+        // Recalculate insights
+        final insights = extractInsights(sessions);
+
+        // Update state immediately
+        state = InsightState.success(
+          sessions: sessions,
+          insights: insights,
+        );
+      }
+
+      // Then delete from Firestore (don't wait for this to complete before updating UI)
+      _repository.deleteSession(
+        userId: userId,
+        sessionId: session.id,
+      );
+    } catch (e) {
+      state = InsightState.error(e.toString());
+    }
+  }
 }

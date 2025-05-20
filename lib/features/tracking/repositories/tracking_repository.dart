@@ -226,6 +226,45 @@ class TrackingRepository {
       {required String userId, required String sessionId}) async {
     await _userSessionsCollection(userId).doc(sessionId).delete();
   }
+
+  // Update session data (miles, durationInSeconds, earnings, expenses)
+  Future<TrackingSession> updateSessionData({
+    required String userId,
+    required String sessionId,
+    double? miles,
+    int? durationInSeconds,
+    double? earnings,
+    double? expenses,
+  }) async {
+    // Get the current session
+    final docRef = _userSessionsCollection(userId).doc(sessionId);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      throw Exception('Tracking session not found');
+    }
+
+    // Get current session data
+    final session = TrackingSession.fromMap(doc.data()!);
+
+    // Create updated session
+    final updatedSession = session.copyWith(
+      miles: miles ?? session.miles,
+      durationInSeconds: durationInSeconds ?? session.durationInSeconds,
+      earnings: earnings ?? session.earnings,
+      expenses: expenses ?? session.expenses,
+    );
+
+    // Update Firestore
+    await docRef.update({
+      if (miles != null) 'miles': miles,
+      if (durationInSeconds != null) 'durationInSeconds': durationInSeconds,
+      if (earnings != null) 'earnings': earnings,
+      if (expenses != null) 'expenses': expenses,
+    });
+
+    return updatedSession;
+  }
 }
 
 @Riverpod(keepAlive: true)

@@ -385,7 +385,13 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                           'Delete Entry',
                           'Are you sure you want to delete this entry? This action cannot be undone.',
                           onDelete: () {
-                            // TODO: Add delete
+                            Navigator.pop(context);
+
+                            ref
+                                .read(insightNotifierProvider(
+                                        ref.read(selectedInsightProvider))
+                                    .notifier)
+                                .deleteInsight(session);
                           },
                         );
                       }
@@ -438,19 +444,20 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     required double earnings,
     required double expenses,
   }) {
-    // In a real app, you would call your repository to update the session
-    // For now, we'll log the changes
-    debugPrint('Updating session: ${session.id}');
-    debugPrint(
-        'New values: miles=$miles, hours=$hours, earnings=$earnings, expenses=$expenses');
+    // Convert hours to seconds
+    final durationInSeconds = (hours * 3600).round();
 
-    // Update the session in the tracking state
-    final updatedSession = session.copyWith(
-      miles: miles,
-      durationInSeconds: (hours * 3600).round(),
-      earnings: earnings,
-      expenses: expenses,
-    );
+    // Update the session in the insight notifier
+    ref
+        .read(
+            insightNotifierProvider(ref.read(selectedInsightProvider)).notifier)
+        .updateInsight(
+          session,
+          miles: miles,
+          durationInSeconds: durationInSeconds,
+          earnings: earnings,
+          expenses: expenses,
+        );
   }
 
   Widget _buildEmptyState() {

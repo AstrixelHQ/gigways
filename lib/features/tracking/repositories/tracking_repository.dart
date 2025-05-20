@@ -147,28 +147,35 @@ class TrackingRepository {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
-    final querySnapshot = await _userSessionsCollection(userId)
-        .where('startTime',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
-        .where('startTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
-        .orderBy('startTime', descending: true)
-        .get();
+    try {
+      final querySnapshot = await _userSessionsCollection(userId)
+          .where('startTime',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
+          .where('startTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
+          .orderBy('startTime', descending: true)
+          .get();
 
-    return querySnapshot.docs
-        .map((doc) => TrackingSession.fromMap(doc.data()))
-        .toList();
+      return querySnapshot.docs
+          .map((doc) => TrackingSession.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      // Handle error
+      print('Error fetching sessions: $e');
+      return [];
+    }
   }
 
   // Get sessions for today
   Future<List<TrackingSession>> getSessionsForToday(String userId) async {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
     return getSessionsForTimeRange(
       userId: userId,
-      startTime: startOfDay,
-      endTime: endOfDay,
+      startTime: start,
+      endTime: end,
     );
   }
 

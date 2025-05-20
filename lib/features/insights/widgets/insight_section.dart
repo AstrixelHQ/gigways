@@ -107,6 +107,11 @@ class _InsightSectionState extends ConsumerState<InsightSection> {
                                 ref
                                     .read(selectedInsightProvider.notifier)
                                     .state = value;
+                                ref
+                                    .read(
+                                        insightNotifierProvider(selectedInsight)
+                                            .notifier)
+                                    .fetchInsights();
                               }
                             },
                           ),

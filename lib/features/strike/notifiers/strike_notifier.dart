@@ -294,4 +294,36 @@ class StrikeNotifier extends _$StrikeNotifier {
       );
     }
   }
+
+  Future<void> cancelStrike() async {
+    final authState = ref.read(authNotifierProvider);
+    if (authState.user == null || state.userStrike == null) {
+      state = state.copyWith(
+        status: StrikeStatus.error,
+        errorMessage: 'User not authenticated or no strike to cancel',
+      );
+      return;
+    }
+
+    state = state.copyWith(status: StrikeStatus.loading);
+
+    try {
+      final userId = authState.user!.uid;
+      final strikeId = state.userStrike!.id;
+
+      // Cancel the strike
+      await _repository.cancelStrike(
+        userId: userId,
+        strikeId: strikeId,
+      );
+
+      // Refresh all data
+      await _initializeStrikeData();
+    } catch (e) {
+      state = state.copyWith(
+        status: StrikeStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
+  }
 }

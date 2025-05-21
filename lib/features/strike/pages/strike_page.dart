@@ -5,6 +5,7 @@ import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/loading_overlay.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/insights/widgets/delete_confirmation_dialog.dart';
 import 'package:gigways/features/strike/models/strike_model.dart';
 import 'package:gigways/features/strike/notifiers/strike_notifier.dart';
 import 'package:intl/intl.dart';
@@ -80,7 +81,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
                   if (strikeState.userStrike != null ||
                       strikeState.selectedDate != null ||
                       strikeState.mostPopularDate != null)
-                    _buildNationwideStrikeCard(strikeState),
+                    _buildNationwideStrikeCard(strikeState, context),
 
                   24.verticalSpace,
 
@@ -122,7 +123,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
     );
   }
 
-  Widget _buildNationwideStrikeCard(StrikeState strikeState) {
+  Widget _buildNationwideStrikeCard(StrikeState strikeState, BuildContext ctx) {
     // Determine which date to display with clear priority order
     final DateTime displayDate;
     final String cardTitle;
@@ -329,28 +330,67 @@ class _StrikePageState extends ConsumerState<StrikePage>
           // Buttons
           if (isUserSelectedDate && strikeState.userStrike != null) ...[
             Center(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColorToken.black.value.withAlpha(120),
-                  foregroundColor: AppColorToken.golden.value,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: AppColorToken.golden.value,
-                      width: 1,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Reschedule button
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColorToken.black.value.withAlpha(120),
+                      foregroundColor: AppColorToken.golden.value,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: AppColorToken.golden.value,
+                          width: 1,
+                        ),
+                      ),
                     ),
+                    icon: const Icon(Icons.calendar_today, size: 18),
+                    label: const Text('Reschedule'),
+                    onPressed: () {
+                      setState(() {
+                        selectedDate = DateTime.now();
+                        showCalendar = true;
+                      });
+                    },
                   ),
-                ),
-                icon: const Icon(Icons.calendar_today, size: 18),
-                label: const Text('Reschedule Strike'),
-                onPressed: () {
-                  setState(() {
-                    selectedDate = DateTime.now();
-                    showCalendar = true;
-                  });
-                },
+                  16.horizontalSpace,
+                  // Cancel button - new addition
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColorToken.black.value.withAlpha(120),
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(
+                          color: Colors.red,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Cancel Strike'),
+                    onPressed: () {
+                      // Show confirmation dialog
+                      DeleteConfirmationDialog.show(
+                        ctx,
+                        'Cancel Strike',
+                        'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
+                        onDelete: () {
+                          Navigator.pop(ctx);
+                          ref
+                              .read(strikeNotifierProvider.notifier)
+                              .cancelStrike();
+                        },
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ],

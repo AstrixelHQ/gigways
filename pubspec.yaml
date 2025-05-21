@@ -45,6 +45,8 @@ dependencies:
   flutter_typeahead: ^5.2.0
   freezed_annotation: ^3.0.0
   json_annotation: ^4.9.0
+  shared_preferences: ^2.5.3
+  flutter_timezone: ^4.1.0
 
 dev_dependencies:
   flutter_test:

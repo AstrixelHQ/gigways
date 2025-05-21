@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gigways/core/services/schedule_notification_service.dart';
 import 'package:gigways/features/auth/models/user_model.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/auth/repositories/user_repository.dart';
@@ -142,6 +143,9 @@ class ScheduleNotifier extends _$ScheduleNotifier {
 
       // Update auth state with new user data
       ref.read(authNotifierProvider.notifier).updateUserData(updatedUserData);
+      await ref
+          .read(scheduleNotificationServiceProvider)
+          .scheduleWeeklyNotifications(state.schedule);
 
       state = state.copyWith(
         status: ScheduleStatus.success,

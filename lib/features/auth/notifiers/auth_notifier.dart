@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:gigways/core/services/schedule_notification_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -101,6 +102,10 @@ class AuthNotifier extends _$AuthNotifier {
         );
         return;
       }
+
+      await ref
+          .read(scheduleNotificationServiceProvider)
+          .scheduleWeeklyNotifications(userData.schedule);
 
       // Check if user has state
       if (userData.state == null) {
@@ -317,6 +322,9 @@ class AuthNotifier extends _$AuthNotifier {
       await _auth.signOut();
       await GoogleSignIn().signOut();
       await FacebookAuth.instance.logOut();
+      await ref
+          .read(scheduleNotificationServiceProvider)
+          .cancelAllScheduleNotifications();
 
       state = AuthData(state: AuthState.unauthenticated);
     } catch (e) {

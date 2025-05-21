@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,7 @@ import 'package:gigways/core/utils/ui_utils.dart';
 import 'package:gigways/firebase_options.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 Future<void> main() async {
   await initilizer(() => const App());
@@ -26,6 +26,7 @@ void notificationTapBackground(NotificationResponse response) {
 
 FutureOr<void> initilizer(FutureOr<Widget> Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

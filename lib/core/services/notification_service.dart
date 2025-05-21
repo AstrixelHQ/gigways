@@ -86,6 +86,8 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
+  FlutterLocalNotificationsPlugin get plugin => _notifications;
+
   // Stream controller for notification taps
   final _notificationTapController = StreamController<String?>.broadcast();
   Stream<String?> get onNotificationTap => _notificationTapController.stream;

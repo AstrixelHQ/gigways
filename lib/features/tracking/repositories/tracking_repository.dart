@@ -265,6 +265,71 @@ class TrackingRepository {
 
     return updatedSession;
   }
+
+  Future<List<TrackingSession>> getAllActiveSessions(String userId) async {
+    final querySnapshot = await _userSessionsCollection(userId)
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    if (querySnapshot.docs.isEmpty) {
+      return [];
+    }
+
+    return querySnapshot.docs
+        .map((doc) => TrackingSession.fromMap(doc.data()))
+        .toList();
+  }
+
+// Add this method to TrackingRepository class
+  Future<void> endAllActiveSessions(
+    String userId, {
+    DateTime? endTime,
+    double? earnings,
+    double? expenses,
+  }) async {
+    final activeSessions = await getAllActiveSessions(userId);
+
+    if (activeSessions.isEmpty) {
+      return;
+    }
+
+    // End all active sessions - use the provided endTime for all
+    final now = endTime ?? DateTime.now();
+
+    // For multiple sessions, we'll distribute earnings/expenses proportionally
+    // based on session duration if they're provided
+    final bool distributeFinancials = earnings != null || expenses != null;
+    final double totalDuration = activeSessions
+        .fold(0, (sum, session) => sum + session.durationInSeconds)
+        .toDouble();
+
+    for (final session in activeSessions) {
+      final sessionId = session.id;
+      final docRef = _userSessionsCollection(userId).doc(sessionId);
+
+      double? sessionEarnings;
+      double? sessionExpenses;
+
+      // If we need to distribute financials, calculate each session's portion
+      if (distributeFinancials && totalDuration > 0) {
+        final ratio = session.durationInSeconds / totalDuration;
+        sessionEarnings = earnings != null ? earnings * ratio : null;
+        sessionExpenses = expenses != null ? expenses * ratio : null;
+      } else if (activeSessions.length == 1) {
+        // If there's only one session, assign all earnings/expenses to it
+        sessionEarnings = earnings;
+        sessionExpenses = expenses;
+      }
+
+      // Update Firestore
+      await docRef.update({
+        'endTime': Timestamp.fromDate(now),
+        'isActive': false,
+        if (sessionEarnings != null) 'earnings': sessionEarnings,
+        if (sessionExpenses != null) 'expenses': sessionExpenses,
+      });
+    }
+  }
 }
 
 @Riverpod(keepAlive: true)

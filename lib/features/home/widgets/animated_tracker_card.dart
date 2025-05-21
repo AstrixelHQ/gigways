@@ -7,6 +7,7 @@ import 'package:gigways/core/utils/time_formatter.dart';
 import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/features/schedule/models/schedule_models.dart';
 import 'package:gigways/features/schedule/notifiers/schedule_notifier.dart';
+import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:intl/intl.dart';
 
 enum TrackerState { inactive, active, endingShift }
@@ -211,40 +212,79 @@ class _TrackerCardState extends ConsumerState<TrackerCard>
         ? _timeOfDayToDateTime(todaySchedule.timeRange.end)
         : null;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColorToken.black.value.withAlpha(50),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColorToken.golden.value.withAlpha(30),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Status Header
-          _buildStatusHeader(),
+    final trackingState = ref.watch(trackingNotifierProvider);
+    final isLoading = trackingState.status == TrackingStatus.loading;
 
-          // Content based on current state
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 400),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.1),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
-            child: _currentState == TrackerState.endingShift
-                ? _buildEarningsForm()
-                : _buildTrackerContent(scheduledStartTime, scheduledEndTime),
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColorToken.black.value.withAlpha(50),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColorToken.golden.value.withAlpha(30),
+            ),
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              // Status Header
+              _buildStatusHeader(),
+
+              // Content based on current state
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.1),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _currentState == TrackerState.endingShift
+                    ? _buildEarningsForm()
+                    : _buildTrackerContent(
+                        scheduledStartTime, scheduledEndTime),
+              ),
+            ],
+          ),
+        ),
+        if (isLoading)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColorToken.black.value.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        color: AppColorToken.golden.value,
+                        strokeWidth: 3,
+                      ),
+                    ),
+                    16.verticalSpace,
+                    Text(
+                      "Initializing tracker...",
+                      style: AppTextStyle.size(16)
+                          .medium
+                          .withColor(AppColorToken.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

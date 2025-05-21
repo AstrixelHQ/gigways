@@ -220,7 +220,6 @@ class TrackingNotifier extends _$TrackingNotifier {
         activeSession: null,
         currentLocations: [],
       );
-
     } catch (e) {
       debugPrint('Error handling app closure: $e');
     }
@@ -309,6 +308,7 @@ class TrackingNotifier extends _$TrackingNotifier {
         userId: userId,
         initialLocation: initialLocation,
       );
+      
 
       // Set up location subscription
       _locationSubscription?.cancel();
@@ -561,6 +561,13 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Re-enable driving detection
       _drivingDetectionService.setDetectionEnabled(true);
+
+      await _repository.endAllActiveSessions(
+        userId,
+        endTime: DateTime.now(),
+        earnings: earnings,
+        expenses: expenses,
+      );
 
       // Reset state
       state = state.copyWith(

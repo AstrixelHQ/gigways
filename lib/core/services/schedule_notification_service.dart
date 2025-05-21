@@ -1,3 +1,4 @@
+// lib/core/services/schedule_notification_service.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,42 +21,99 @@ class ScheduleNotificationService {
   factory ScheduleNotificationService() => _instance;
 
   ScheduleNotificationService._internal() {
-    // Initialize timezone data
     tz.initializeTimeZones();
   }
 
   final NotificationService _notificationService = NotificationService();
 
-  // Notification IDs - using a range to avoid conflicts with other notifications
-  // 2000-2099: Start notifications
-  // 2100-2199: End notifications
+  // Base IDs for notifications
   static const int _startNotificationIdBase = 2000;
   static const int _endNotificationIdBase = 2100;
 
-  // Map to store notification IDs for each day
-  final Map<String, int> _scheduledNotificationIds = {};
+  // Map to store schedule information for comparison
+  // This helps detect changes and avoid duplicate notifications
+  final Map<String, ScheduleInfo> _scheduleRegistry = {};
 
-  // Schedule notifications for an entire week
+  // Schedule notifications for an entire week based on user's schedule
   Future<void> scheduleWeeklyNotifications(ScheduleModel? schedule) async {
     if (schedule == null) return;
 
-    // Cancel all previous schedule notifications
-    await cancelAllScheduleNotifications();
+    // First, generate the current schedule info map for comparison
+    final Map<String, ScheduleInfo> newScheduleInfo = {};
 
-    // Create notifications for each day with a schedule
     schedule.weeklySchedule.forEach((day, daySchedule) {
       if (daySchedule != null) {
-        _scheduleForDay(day, daySchedule, schedule.employmentType);
+        newScheduleInfo[day] = ScheduleInfo(
+          startHour: daySchedule.timeRange.start.hour,
+          startMinute: daySchedule.timeRange.start.minute,
+          endHour: daySchedule.timeRange.end.hour,
+          endMinute: daySchedule.timeRange.end.minute,
+        );
+      }
+    });
+
+    // Compare with existing schedule and update only what changed
+    await _updateScheduleNotifications(
+        newScheduleInfo, schedule.employmentType);
+  }
+
+  // Update schedule notifications based on changes
+  Future<void> _updateScheduleNotifications(
+    Map<String, ScheduleInfo> newScheduleInfo,
+    String employmentType,
+  ) async {
+    // Find days that need to be canceled (removed schedules)
+    final List<String> daysToCancel = [];
+    _scheduleRegistry.forEach((day, info) {
+      if (!newScheduleInfo.containsKey(day)) {
+        daysToCancel.add(day);
+      }
+    });
+
+    // Cancel removed schedules
+    for (final day in daysToCancel) {
+      await _cancelDayNotifications(day);
+      _scheduleRegistry.remove(day);
+      debugPrint('Canceled schedule notifications for $day');
+    }
+
+    // Update or create schedules for days in the new schedule
+    newScheduleInfo.forEach((day, newInfo) async {
+      if (_scheduleRegistry.containsKey(day)) {
+        // Check if schedule has changed
+        if (_scheduleRegistry[day]!.startHour != newInfo.startHour ||
+            _scheduleRegistry[day]!.startMinute != newInfo.startMinute ||
+            _scheduleRegistry[day]!.endHour != newInfo.endHour ||
+            _scheduleRegistry[day]!.endMinute != newInfo.endMinute) {
+          // Schedule has changed, cancel old and create new
+          await _cancelDayNotifications(day);
+          await _scheduleDayNotifications(
+            day,
+            newInfo,
+            employmentType,
+            isUpdate: true,
+          );
+
+          _scheduleRegistry[day] = newInfo;
+          debugPrint('Updated schedule notifications for $day');
+        }
+        // If unchanged, do nothing to avoid duplicate notifications
+      } else {
+        // New schedule day, create notifications
+        await _scheduleDayNotifications(day, newInfo, employmentType);
+        _scheduleRegistry[day] = newInfo;
+        debugPrint('Created new schedule notifications for $day');
       }
     });
   }
 
   // Schedule notifications for a specific day
-  Future<void> _scheduleForDay(
+  Future<void> _scheduleDayNotifications(
     String dayName,
-    DayScheduleModel daySchedule,
-    String employmentType,
-  ) async {
+    ScheduleInfo info,
+    String employmentType, {
+    bool isUpdate = false,
+  }) async {
     final int dayIndex = _getDayIndex(dayName);
     if (dayIndex == -1) return;
 
@@ -66,36 +124,28 @@ class ScheduleNotificationService {
     final nextOccurrence =
         DateTime(now.year, now.month, now.day + daysUntilTarget);
 
-    // Create start time
-    final startHour = daySchedule.timeRange.start.hour;
-    final startMinute = daySchedule.timeRange.start.minute;
-
-    // Create end time
-    final endHour = daySchedule.timeRange.end.hour;
-    final endMinute = daySchedule.timeRange.end.minute;
+    // Generate unique notification IDs for this day
+    final startId = _startNotificationIdBase + (dayIndex * 10);
+    final endId = _endNotificationIdBase + (dayIndex * 10);
 
     // Schedule start notification (15 minutes before)
     final startTime = DateTime(
       nextOccurrence.year,
       nextOccurrence.month,
       nextOccurrence.day,
-      startHour,
-      startMinute,
+      info.startHour,
+      info.startMinute,
     ).subtract(const Duration(minutes: 15));
 
     // Only schedule if the time is in the future
     if (startTime.isAfter(now)) {
-      final startId = _startNotificationIdBase + dayIndex;
-      _scheduleNotification(
+      await _scheduleNotification(
         id: startId,
         title: 'Shift Starting Soon',
         body: 'Your $dayName shift is starting in 15 minutes.',
         scheduledTime: startTime,
         payload: 'schedule_start_$dayName',
       );
-
-      // Store notification ID
-      _scheduledNotificationIds['${dayName}_start'] = startId;
     }
 
     // Schedule end notification (15 minutes before)
@@ -103,88 +153,38 @@ class ScheduleNotificationService {
       nextOccurrence.year,
       nextOccurrence.month,
       nextOccurrence.day,
-      endHour,
-      endMinute,
+      info.endHour,
+      info.endMinute,
     ).subtract(const Duration(minutes: 15));
 
     if (endTime.isAfter(now)) {
-      final endId = _endNotificationIdBase + dayIndex;
-      _scheduleNotification(
+      await _scheduleNotification(
         id: endId,
         title: 'Shift Ending Soon',
         body: 'Your $dayName shift is ending in 15 minutes.',
         scheduledTime: endTime,
         payload: 'schedule_end_$dayName',
       );
-
-      // Store notification ID
-      _scheduledNotificationIds['${dayName}_end'] = endId;
     }
-
-    // Schedule recurring notifications for next week(s)
-    // This ensures notifications continue even after the first week
-    _scheduleRecurringNotifications(dayName, daySchedule, employmentType);
   }
 
-  // Schedule the same notifications 7 days later to maintain recurring pattern
-  Future<void> _scheduleRecurringNotifications(
-    String dayName,
-    DayScheduleModel daySchedule,
-    String employmentType,
-  ) async {
-    // Schedule for the next few weeks to ensure coverage
-    for (int weekOffset = 1; weekOffset <= 4; weekOffset++) {
-      final now = DateTime.now();
+  // Cancel notifications for a specific day
+  Future<void> _cancelDayNotifications(String dayName) async {
+    try {
+      final flutterLocalNotificationsPlugin = _notificationService.plugin;
       final dayIndex = _getDayIndex(dayName);
-      if (dayIndex == -1) continue;
 
-      // Calculate the target day with week offset
-      final daysUntilTarget = (dayIndex - now.weekday + 7) % 7;
-      final futureOccurrence = DateTime(
-          now.year, now.month, now.day + daysUntilTarget + (weekOffset * 7));
+      if (dayIndex == -1) return;
 
-      // Schedule start notification for future week
-      final futureStartTime = DateTime(
-        futureOccurrence.year,
-        futureOccurrence.month,
-        futureOccurrence.day,
-        daySchedule.timeRange.start.hour,
-        daySchedule.timeRange.start.minute,
-      ).subtract(const Duration(minutes: 15));
+      // Cancel start and end notifications for this day
+      await flutterLocalNotificationsPlugin
+          .cancel(_startNotificationIdBase + (dayIndex * 10));
+      await flutterLocalNotificationsPlugin
+          .cancel(_endNotificationIdBase + (dayIndex * 10));
 
-      final futureStartId =
-          _startNotificationIdBase + dayIndex + (weekOffset * 10);
-      _scheduleNotification(
-        id: futureStartId,
-        title: 'Shift Starting Soon',
-        body: 'Your $dayName shift is starting in 15 minutes.',
-        scheduledTime: futureStartTime,
-        payload: 'schedule_start_${dayName}_future_$weekOffset',
-      );
-
-      // Schedule end notification for future week
-      final futureEndTime = DateTime(
-        futureOccurrence.year,
-        futureOccurrence.month,
-        futureOccurrence.day,
-        daySchedule.timeRange.end.hour,
-        daySchedule.timeRange.end.minute,
-      ).subtract(const Duration(minutes: 15));
-
-      final futureEndId = _endNotificationIdBase + dayIndex + (weekOffset * 10);
-      _scheduleNotification(
-        id: futureEndId,
-        title: 'Shift Ending Soon',
-        body: 'Your $dayName shift is ending in 15 minutes.',
-        scheduledTime: futureEndTime,
-        payload: 'schedule_end_${dayName}_future_$weekOffset',
-      );
-
-      // Store these IDs too
-      _scheduledNotificationIds['${dayName}_start_future_$weekOffset'] =
-          futureStartId;
-      _scheduledNotificationIds['${dayName}_end_future_$weekOffset'] =
-          futureEndId;
+      debugPrint('Canceled notifications for $dayName');
+    } catch (e) {
+      debugPrint('Error canceling day notifications: $e');
     }
   }
 
@@ -196,7 +196,7 @@ class ScheduleNotificationService {
     required DateTime scheduledTime,
     required String payload,
   }) async {
-    final flutterLocalNotificationsPlugin = _notificationService._notifications;
+    final flutterLocalNotificationsPlugin = _notificationService.plugin;
 
     final tzDateTime = tz.TZDateTime.from(
       scheduledTime,
@@ -225,6 +225,10 @@ class ScheduleNotificationService {
     );
 
     try {
+      // First cancel any existing notification with this ID
+      await flutterLocalNotificationsPlugin.cancel(id);
+
+      // Then schedule the new notification
       await flutterLocalNotificationsPlugin.zonedSchedule(
         id,
         title,
@@ -270,28 +274,21 @@ class ScheduleNotificationService {
   // Cancel all schedule-related notifications
   Future<void> cancelAllScheduleNotifications() async {
     try {
-      final flutterLocalNotificationsPlugin =
-          _notificationService._notifications;
+      final flutterLocalNotificationsPlugin = _notificationService.plugin;
 
-      // Cancel by ID range
-      for (int id = _startNotificationIdBase;
-          id < _startNotificationIdBase + 100;
-          id++) {
-        await flutterLocalNotificationsPlugin.cancel(id);
+      // Cancel notifications for each day that we have registered
+      for (final day in _scheduleRegistry.keys) {
+        final dayIndex = _getDayIndex(day);
+        if (dayIndex != -1) {
+          await flutterLocalNotificationsPlugin
+              .cancel(_startNotificationIdBase + (dayIndex * 10));
+          await flutterLocalNotificationsPlugin
+              .cancel(_endNotificationIdBase + (dayIndex * 10));
+        }
       }
 
-      for (int id = _endNotificationIdBase;
-          id < _endNotificationIdBase + 100;
-          id++) {
-        await flutterLocalNotificationsPlugin.cancel(id);
-      }
-
-      // Also cancel notifications stored in our tracking map
-      _scheduledNotificationIds.forEach((key, id) async {
-        await flutterLocalNotificationsPlugin.cancel(id);
-      });
-
-      _scheduledNotificationIds.clear();
+      // Clear our registry
+      _scheduleRegistry.clear();
 
       debugPrint('Canceled all schedule notifications');
     } catch (e) {
@@ -299,10 +296,8 @@ class ScheduleNotificationService {
     }
   }
 
-  // Handle notification interactions
-  void handleNotificationPayload(String? payload) {
-    if (payload == null) return;
-
+  // Handle notification payload when tapped
+  void handleNotificationPayload(String payload) {
     if (payload.startsWith('schedule_start_')) {
       // Handle start shift notification
       debugPrint('User tapped on shift start notification');
@@ -313,4 +308,19 @@ class ScheduleNotificationService {
       // Navigate to schedule page or show relevant info
     }
   }
+}
+
+// Class to store schedule information for comparison
+class ScheduleInfo {
+  final int startHour;
+  final int startMinute;
+  final int endHour;
+  final int endMinute;
+
+  ScheduleInfo({
+    required this.startHour,
+    required this.startMinute,
+    required this.endHour,
+    required this.endMinute,
+  });
 }

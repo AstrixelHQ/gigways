@@ -138,14 +138,17 @@ class ScheduleNotifier extends _$ScheduleNotifier {
         schedule: state.schedule,
       );
 
+      if (updatedUserData.schedule != null) {
+        ref
+            .read(scheduleNotificationServiceProvider)
+            .scheduleWeeklyNotifications(updatedUserData.schedule!);
+      }
+
       // Save to repository
       await _userRepository.updateUser(updatedUserData);
 
       // Update auth state with new user data
       ref.read(authNotifierProvider.notifier).updateUserData(updatedUserData);
-      await ref
-          .read(scheduleNotificationServiceProvider)
-          .scheduleWeeklyNotifications(state.schedule);
 
       state = state.copyWith(
         status: ScheduleStatus.success,

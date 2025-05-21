@@ -51,6 +51,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
         TextButton(
           onPressed: () {
             if (onDelete != null) {
+              Navigator.pop(context);
               onDelete!();
             }
           },

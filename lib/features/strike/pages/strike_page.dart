@@ -83,7 +83,6 @@ class _StrikePageState extends ConsumerState<StrikePage>
                       strikeState.selectedDate != null ||
                       strikeState.mostPopularDate != null)
                     NationwideStrikeCard(
-                      strikeState: strikeState,
                       animationController: _animationController,
                       onReschedule: () {
                         setState(() {
@@ -127,7 +126,6 @@ class _StrikePageState extends ConsumerState<StrikePage>
                     )
                   else
                     ScheduleStrikeCard(
-                      strikeState: strikeState,
                       animationController: _animationController,
                       onChooseDate: () {
                         setState(() {
@@ -190,20 +188,18 @@ class ErrorMessageWidget extends StatelessWidget {
 
 // Widget for displaying nationwide strike card
 class NationwideStrikeCard extends ConsumerWidget {
-  final StrikeState strikeState;
   final AnimationController animationController;
   final VoidCallback onReschedule;
 
   const NationwideStrikeCard({
     Key? key,
-    required this.strikeState,
     required this.animationController,
     required this.onReschedule,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Determine which date to display with clear priority order
+    final strikeState = ref.watch(strikeNotifierProvider);
     final DateTime displayDate;
     final String cardTitle;
     final bool isUserSelectedDate;
@@ -407,7 +403,7 @@ class NationwideStrikeCard extends ConsumerWidget {
           24.verticalSpace,
 
           // Action Buttons Section
-          if (isUserSelectedDate && strikeState.userStrike != null)
+          if (strikeState.userStrike != null)
             UserStrikeButtons(
               onReschedule: onReschedule,
             )
@@ -503,9 +499,7 @@ class UserStrikeButtons extends ConsumerWidget {
                 'Cancel Strike',
                 'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
                 onDelete: () {
-                  // Call the cancel strike method
                   ref.read(strikeNotifierProvider.notifier).cancelStrike();
-                  Navigator.pop(context); // Close the dialog
                 },
               );
             },
@@ -536,7 +530,6 @@ class JoinStrikeButton extends ConsumerWidget {
           return AppButton(
             text: 'Join This Strike',
             onPressed: () {
-              // Schedule the strike for this date
               ref
                   .read(strikeNotifierProvider.notifier)
                   .scheduleStrike(displayDate);
@@ -556,19 +549,18 @@ class JoinStrikeButton extends ConsumerWidget {
 
 // Widget for schedule strike card
 class ScheduleStrikeCard extends ConsumerWidget {
-  final StrikeState strikeState;
   final AnimationController animationController;
   final VoidCallback onChooseDate;
 
   const ScheduleStrikeCard({
     Key? key,
-    required this.strikeState,
     required this.animationController,
     required this.onChooseDate,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strikeState = ref.watch(strikeNotifierProvider);
     // Get data to display
     final upcomingDates = strikeState.upcomingStrikeDates;
     final mostPopularDate = upcomingDates.isNotEmpty ? upcomingDates[0] : null;

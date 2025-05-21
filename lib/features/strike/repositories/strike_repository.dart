@@ -238,7 +238,6 @@ class StrikeRepository {
     required String strikeId,
   }) async {
     try {
-      // Remove the strike from Firestore
       await _firestore.collection('strikes').doc(strikeId).delete();
     } catch (e) {
       print('Error canceling strike: $e');

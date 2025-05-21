@@ -166,12 +166,6 @@ class StrikeNotifier extends _$StrikeNotifier {
     }
   }
 
-  // Select a date without fetching data
-  void selectDate(DateTime date) {
-    state = state.copyWith(selectedDate: date);
-    fetchSelectedDateStats();
-  }
-
   // Fetch stats for currently selected date
   Future<void> fetchSelectedDateStats() async {
     if (state.selectedDate == null) return;
@@ -285,7 +279,6 @@ class StrikeNotifier extends _$StrikeNotifier {
         userName: authState.userData!.fullName,
       );
 
-      // Refresh all data
       await _initializeStrikeData();
     } catch (e) {
       state = state.copyWith(
@@ -317,8 +310,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         strikeId: strikeId,
       );
 
-      // Refresh all data
-      await _initializeStrikeData();
+      await refreshStrikeData();
     } catch (e) {
       state = state.copyWith(
         status: StrikeStatus.error,

@@ -14,7 +14,7 @@ class DeleteConfirmationDialog extends StatelessWidget {
   static Future<void> show(
       BuildContext context, String title, String description,
       {VoidCallback? onDelete}) async {
-    showDialog(
+    await showDialog(
       context: context,
       builder: (context) => DeleteConfirmationDialog(
         title: title,
@@ -42,14 +42,18 @@ class DeleteConfirmationDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
             style: AppTextStyle.size(14).medium.withColor(AppColorToken.white),
           ),
         ),
         TextButton(
-          onPressed: onDelete,
+          onPressed: () {
+            if (onDelete != null) {
+              onDelete!();
+            }
+          },
           child: Text(
             'Delete',
             style: AppTextStyle.size(14).medium.withColor(AppColorToken.red),

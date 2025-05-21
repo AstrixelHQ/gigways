@@ -74,22 +74,78 @@ class _StrikePageState extends ConsumerState<StrikePage>
 
                   // Error message if any
                   if (strikeState.status == StrikeStatus.error)
-                    _buildErrorWidget(
-                        strikeState.errorMessage ?? 'An error occurred'),
+                    ErrorMessageWidget(
+                        message:
+                            strikeState.errorMessage ?? 'An error occurred'),
 
                   // Nationwide Strike Card - show if user has a strike, selected date, or there's a popular date
                   if (strikeState.userStrike != null ||
                       strikeState.selectedDate != null ||
                       strikeState.mostPopularDate != null)
-                    _buildNationwideStrikeCard(strikeState, context),
+                    NationwideStrikeCard(
+                      strikeState: strikeState,
+                      animationController: _animationController,
+                      onReschedule: () {
+                        setState(() {
+                          selectedDate = DateTime.now();
+                          showCalendar = true;
+                        });
+                      },
+                    ),
 
                   24.verticalSpace,
 
                   // Schedule Strike Section
                   if (showCalendar)
-                    _buildCalendarView(strikeState)
+                    CalendarView(
+                      strikeState: strikeState,
+                      selectedDate: selectedDate,
+                      onDateSelected: (date) {
+                        setState(() {
+                          selectedDate = date;
+                        });
+                      },
+                      onCancel: () {
+                        setState(() {
+                          showCalendar = false;
+                        });
+                      },
+                      onSetStrike: (date) {
+                        if (strikeState.userStrike != null) {
+                          ref
+                              .read(strikeNotifierProvider.notifier)
+                              .rescheduleStrike(date);
+                        } else {
+                          ref
+                              .read(strikeNotifierProvider.notifier)
+                              .scheduleStrike(date);
+                        }
+                        setState(() {
+                          showCalendar = false;
+                        });
+                      },
+                    )
                   else
-                    _buildScheduleStrikeCard(strikeState),
+                    ScheduleStrikeCard(
+                      strikeState: strikeState,
+                      animationController: _animationController,
+                      onChooseDate: () {
+                        setState(() {
+                          // Set initial selected date
+                          final showDate = strikeState.selectedDate ??
+                              (strikeState.upcomingStrikeDates.isNotEmpty
+                                  ? strikeState.upcomingStrikeDates[0].date
+                                  : null);
+
+                          if (showDate != null) {
+                            selectedDate = showDate;
+                          } else {
+                            selectedDate = DateTime.now();
+                          }
+                          showCalendar = true;
+                        });
+                      },
+                    ),
                 ],
               ),
             ),
@@ -98,8 +154,16 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
+}
 
-  Widget _buildErrorWidget(String errorMessage) {
+// Widget for displaying error messages
+class ErrorMessageWidget extends StatelessWidget {
+  final String message;
+
+  const ErrorMessageWidget({Key? key, required this.message}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 16),
@@ -114,7 +178,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
           16.horizontalSpace,
           Expanded(
             child: Text(
-              errorMessage,
+              message,
               style: const TextStyle(color: Colors.red),
             ),
           ),
@@ -122,8 +186,23 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
+}
 
-  Widget _buildNationwideStrikeCard(StrikeState strikeState, BuildContext ctx) {
+// Widget for displaying nationwide strike card
+class NationwideStrikeCard extends ConsumerWidget {
+  final StrikeState strikeState;
+  final AnimationController animationController;
+  final VoidCallback onReschedule;
+
+  const NationwideStrikeCard({
+    Key? key,
+    required this.strikeState,
+    required this.animationController,
+    required this.onReschedule,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     // Determine which date to display with clear priority order
     final DateTime displayDate;
     final String cardTitle;
@@ -327,105 +406,169 @@ class _StrikePageState extends ConsumerState<StrikePage>
           ),
           24.verticalSpace,
 
-          // Buttons
-          if (isUserSelectedDate && strikeState.userStrike != null) ...[
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Reschedule button
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColorToken.black.value.withAlpha(120),
-                      foregroundColor: AppColorToken.golden.value,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: AppColorToken.golden.value,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.calendar_today, size: 18),
-                    label: const Text('Reschedule'),
-                    onPressed: () {
-                      setState(() {
-                        selectedDate = DateTime.now();
-                        showCalendar = true;
-                      });
-                    },
-                  ),
-                  16.horizontalSpace,
-                  // Cancel button - new addition
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColorToken.black.value.withAlpha(120),
-                      foregroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(
-                          color: Colors.red,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.cancel_outlined, size: 18),
-                    label: const Text('Cancel Strike'),
-                    onPressed: () {
-                      // Show confirmation dialog
-                      DeleteConfirmationDialog.show(
-                        ctx,
-                        'Cancel Strike',
-                        'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
-                        onDelete: () {
-                          Navigator.pop(ctx);
-                          ref
-                              .read(strikeNotifierProvider.notifier)
-                              .cancelStrike();
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
+          // Action Buttons Section
+          if (isUserSelectedDate && strikeState.userStrike != null)
+            UserStrikeButtons(
+              onReschedule: onReschedule,
+            )
+          else if (!isUserSelectedDate)
+            JoinStrikeButton(
+              animationController: animationController,
+              displayDate: displayDate,
             ),
-          ],
-
-          // Join button - For popular dates not selected by user
-          if (!isUserSelectedDate) ...[
-            Center(
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return AppButton(
-                    text: 'Join This Strike',
-                    onPressed: () {
-                      // Schedule the strike for this date
-                      ref
-                          .read(strikeNotifierProvider.notifier)
-                          .scheduleStrike(displayDate);
-                    },
-                    width: 200,
-                    backgroundColor: Color.lerp(
-                      AppColorToken.golden.value.withAlpha(180),
-                      AppColorToken.golden.value,
-                      _animationController.value,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildScheduleStrikeCard(StrikeState strikeState) {
+  Widget _buildDateBox(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: AppColorToken.white.value,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: AppColorToken.black.value.withAlpha(40),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: AppTextStyle.size(18).bold.withColor(AppColorToken.black),
+      ),
+    );
+  }
+}
+
+// Widget for user strike action buttons (Reschedule & Cancel)
+class UserStrikeButtons extends ConsumerWidget {
+  final VoidCallback onReschedule;
+
+  const UserStrikeButtons({
+    Key? key,
+    required this.onReschedule,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Reschedule button
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColorToken.black.value.withAlpha(120),
+              foregroundColor: AppColorToken.golden.value,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: AppColorToken.golden.value,
+                  width: 1,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.calendar_today, size: 18),
+            label: const Text('Reschedule'),
+            onPressed: onReschedule,
+          ),
+          16.horizontalSpace,
+          // Cancel button
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColorToken.black.value.withAlpha(120),
+              foregroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(
+                  color: Colors.red,
+                  width: 1,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+            label: const Text('Cancel Strike'),
+            onPressed: () {
+              // Show confirmation dialog
+              DeleteConfirmationDialog.show(
+                context,
+                'Cancel Strike',
+                'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
+                onDelete: () {
+                  // Call the cancel strike method
+                  ref.read(strikeNotifierProvider.notifier).cancelStrike();
+                  Navigator.pop(context); // Close the dialog
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Widget for join strike button
+class JoinStrikeButton extends ConsumerWidget {
+  final AnimationController animationController;
+  final DateTime displayDate;
+
+  const JoinStrikeButton({
+    Key? key,
+    required this.animationController,
+    required this.displayDate,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: AnimatedBuilder(
+        animation: animationController,
+        builder: (context, child) {
+          return AppButton(
+            text: 'Join This Strike',
+            onPressed: () {
+              // Schedule the strike for this date
+              ref
+                  .read(strikeNotifierProvider.notifier)
+                  .scheduleStrike(displayDate);
+            },
+            width: 200,
+            backgroundColor: Color.lerp(
+              AppColorToken.golden.value.withAlpha(180),
+              AppColorToken.golden.value,
+              animationController.value,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Widget for schedule strike card
+class ScheduleStrikeCard extends ConsumerWidget {
+  final StrikeState strikeState;
+  final AnimationController animationController;
+  final VoidCallback onChooseDate;
+
+  const ScheduleStrikeCard({
+    Key? key,
+    required this.strikeState,
+    required this.animationController,
+    required this.onChooseDate,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     // Get data to display
     final upcomingDates = strikeState.upcomingStrikeDates;
     final mostPopularDate = upcomingDates.isNotEmpty ? upcomingDates[0] : null;
@@ -474,52 +617,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
           24.verticalSpace,
 
           // Statistics Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColorToken.black.value.withAlpha(80),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColorToken.golden.value.withAlpha(40),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildStatRow(
-                  'Nationwide users',
-                  '${strikeState.totalUsers}',
-                  Icons.public,
-                ),
-                12.verticalSpace,
-                _buildStatRow(
-                  '${strikeState.userState} users',
-                  '${strikeState.stateUsers}',
-                  Icons.location_on_outlined,
-                ),
-                16.verticalSpace,
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppColorToken.golden.value.withAlpha(180),
-                      size: 18,
-                    ),
-                    10.horizontalSpace,
-                    Expanded(
-                      child: Text(
-                        'Strike to unite, demand higher wages, and improve conditions!',
-                        style: AppTextStyle.size(14)
-                            .medium
-                            .withColor(AppColorToken.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          StatisticsCard(strikeState: strikeState),
           24.verticalSpace,
 
           // Popular Dates Section
@@ -532,93 +630,112 @@ class _StrikePageState extends ConsumerState<StrikePage>
 
           // Dates Display
           if (datesToShow.isEmpty)
-            _buildEmptyDatesWidget()
+            const EmptyDatesWidget()
           else
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColorToken.black.value.withAlpha(80),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  // Time of day display
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColorToken.black.value.withAlpha(100),
-                          border: Border.all(
-                            color: AppColorToken.golden.value.withAlpha(80),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          _isDayTime()
-                              ? Icons.wb_sunny_outlined
-                              : Icons.nightlight_round,
-                          color: AppColorToken.golden.value,
-                          size: 16,
-                        ),
-                      ),
-                      12.horizontalSpace,
-                      Text(
-                        _isDayTime() ? 'Day Time' : 'Night Time',
-                        style: AppTextStyle.size(14)
-                            .medium
-                            .withColor(AppColorToken.white),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'State %',
-                        style: AppTextStyle.size(14).regular.withColor(
-                              AppColorToken.white..color.withAlpha(150),
-                            ),
-                      ),
-                    ],
-                  ),
-                  20.verticalSpace,
-
-                  // Date list
-                  ...datesToShow
-                      .map((result) => _buildDateCard(
-                            result,
-                            isTopChoice: datesToShow.indexOf(result) == 0,
-                            totalStateParticipants: datesToShow.fold<int>(
-                                0, (sum, item) => sum + item.stateCount),
-                            datesToShow: datesToShow,
-                          ))
-                      .toList(),
-                ],
-              ),
-            ),
+            PopularDatesCard(datesToShow: datesToShow),
           24.verticalSpace,
 
           // Choose Date Button - Only show if user doesn't have an active strike
           if (strikeState.userStrike == null)
             AppButton(
               text: 'Choose Date',
-              onPressed: () {
-                setState(() {
-                  // Set initial selected date
-                  if (showDate != null) {
-                    selectedDate = showDate;
-                  } else {
-                    selectedDate = DateTime.now();
-                  }
-                  showCalendar = true;
-                });
-              },
+              onPressed: onChooseDate,
               leading: const Icon(Icons.calendar_today, size: 20),
             ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildEmptyDatesWidget() {
+// Widget for statistics card
+class StatisticsCard extends StatelessWidget {
+  final StrikeState strikeState;
+
+  const StatisticsCard({
+    Key? key,
+    required this.strikeState,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColorToken.black.value.withAlpha(80),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColorToken.golden.value.withAlpha(40),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatRow(
+            'Nationwide users',
+            '${strikeState.totalUsers}',
+            Icons.public,
+          ),
+          12.verticalSpace,
+          _buildStatRow(
+            '${strikeState.userState} users',
+            '${strikeState.stateUsers}',
+            Icons.location_on_outlined,
+          ),
+          16.verticalSpace,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: AppColorToken.golden.value.withAlpha(180),
+                size: 18,
+              ),
+              10.horizontalSpace,
+              Expanded(
+                child: Text(
+                  'Strike to unite, demand higher wages, and improve conditions!',
+                  style: AppTextStyle.size(14)
+                      .medium
+                      .withColor(AppColorToken.white),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: AppColorToken.golden.value.withAlpha(180),
+          size: 18,
+        ),
+        10.horizontalSpace,
+        Text(
+          '$label:',
+          style: AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+        ),
+        8.horizontalSpace,
+        Text(
+          value,
+          style: AppTextStyle.size(14).semiBold.withColor(AppColorToken.golden),
+        ),
+      ],
+    );
+  }
+}
+
+// Widget for empty dates
+class EmptyDatesWidget extends StatelessWidget {
+  const EmptyDatesWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -654,33 +771,104 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
+}
 
-  Widget _buildStatRow(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: AppColorToken.golden.value.withAlpha(180),
-          size: 18,
-        ),
-        10.horizontalSpace,
-        Text(
-          '$label:',
-          style: AppTextStyle.size(14).regular.withColor(AppColorToken.white),
-        ),
-        8.horizontalSpace,
-        Text(
-          value,
-          style: AppTextStyle.size(14).semiBold.withColor(AppColorToken.golden),
-        ),
-      ],
+// Widget for popular dates card
+class PopularDatesCard extends StatelessWidget {
+  final List<StrikeCountResult> datesToShow;
+
+  const PopularDatesCard({
+    Key? key,
+    required this.datesToShow,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColorToken.black.value.withAlpha(80),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Time of day display
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColorToken.black.value.withAlpha(100),
+                  border: Border.all(
+                    color: AppColorToken.golden.value.withAlpha(80),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  _isDayTime()
+                      ? Icons.wb_sunny_outlined
+                      : Icons.nightlight_round,
+                  color: AppColorToken.golden.value,
+                  size: 16,
+                ),
+              ),
+              12.horizontalSpace,
+              Text(
+                _isDayTime() ? 'Day Time' : 'Night Time',
+                style:
+                    AppTextStyle.size(14).medium.withColor(AppColorToken.white),
+              ),
+              const Spacer(),
+              Text(
+                'State %',
+                style: AppTextStyle.size(14).regular.withColor(
+                      AppColorToken.white..color.withAlpha(150),
+                    ),
+              ),
+            ],
+          ),
+          20.verticalSpace,
+
+          // Date list
+          ...datesToShow
+              .map((result) => DateCard(
+                    result: result,
+                    isTopChoice: datesToShow.indexOf(result) == 0,
+                    totalStateParticipants: datesToShow.fold<int>(
+                        0, (sum, item) => sum + item.stateCount),
+                    datesToShow: datesToShow,
+                  ))
+              .toList(),
+        ],
+      ),
     );
   }
 
-  Widget _buildDateCard(StrikeCountResult result,
-      {required bool isTopChoice,
-      required int totalStateParticipants,
-      required List<StrikeCountResult> datesToShow}) {
+  // Helper to determine if it's day time
+  bool _isDayTime() {
+    final hour = DateTime.now().hour;
+    return hour >= 6 && hour < 18; // 6am to 6pm
+  }
+}
+
+// Widget for date card
+class DateCard extends ConsumerWidget {
+  final StrikeCountResult result;
+  final bool isTopChoice;
+  final int totalStateParticipants;
+  final List<StrikeCountResult> datesToShow;
+
+  const DateCard({
+    Key? key,
+    required this.result,
+    required this.isTopChoice,
+    required this.totalStateParticipants,
+    required this.datesToShow,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final statePercentage = totalStateParticipants > 0
         ? (result.stateCount / totalStateParticipants * 100).round()
         : 0;
@@ -770,14 +958,27 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
+}
 
-  // Helper to determine if it's day time
-  bool _isDayTime() {
-    final hour = DateTime.now().hour;
-    return hour >= 6 && hour < 18; // 6am to 6pm
-  }
+// Widget for calendar view
+class CalendarView extends StatelessWidget {
+  final StrikeState strikeState;
+  final DateTime selectedDate;
+  final Function(DateTime) onDateSelected;
+  final VoidCallback onCancel;
+  final Function(DateTime) onSetStrike;
 
-  Widget _buildCalendarView(StrikeState strikeState) {
+  const CalendarView({
+    Key? key,
+    required this.strikeState,
+    required this.selectedDate,
+    required this.onDateSelected,
+    required this.onCancel,
+    required this.onSetStrike,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     final isRescheduling = strikeState.userStrike != null;
 
     return Container(
@@ -800,13 +1001,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
           CalendarGrid(
             selectedDate: selectedDate,
             userStrike: strikeState.userStrike,
-            onDateSelected: (date) {
-              setState(() {
-                selectedDate = date;
-              });
-              // Just update the selectedDate in the state
-              ref.read(strikeNotifierProvider.notifier).selectDate(date);
-            },
+            onDateSelected: onDateSelected,
           ),
           24.verticalSpace,
           Row(
@@ -814,11 +1009,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
               Expanded(
                 child: AppButton(
                   text: 'Cancel',
-                  onPressed: () {
-                    setState(() {
-                      showCalendar = false;
-                    });
-                  },
+                  onPressed: onCancel,
                   backgroundColor: Colors.grey[800],
                 ),
               ),
@@ -826,20 +1017,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
               Expanded(
                 child: AppButton(
                   text: isRescheduling ? 'Reschedule' : 'Set Strike',
-                  onPressed: () {
-                    if (isRescheduling) {
-                      ref
-                          .read(strikeNotifierProvider.notifier)
-                          .rescheduleStrike(selectedDate);
-                    } else {
-                      ref
-                          .read(strikeNotifierProvider.notifier)
-                          .scheduleStrike(selectedDate);
-                    }
-                    setState(() {
-                      showCalendar = false;
-                    });
-                  },
+                  onPressed: () => onSetStrike(selectedDate),
                 ),
               ),
             ],
@@ -848,72 +1026,6 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
-
-  Widget _buildDateBox(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: AppColorToken.white.value,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: AppColorToken.black.value.withAlpha(40),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: AppTextStyle.size(18).bold.withColor(AppColorToken.black),
-      ),
-    );
-  }
-}
-
-// Progress Circle Painter
-class ProgressCirclePainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  ProgressCirclePainter({
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    final paint = Paint()
-      ..color = color.withAlpha(30)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
-
-    // Draw background circle
-    canvas.drawCircle(center, radius, paint);
-
-    // Draw progress arc
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -1.5708, // Start from top (-90 degrees)
-      progress * 2 * 3.14159, // Convert progress to radians
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 // Enhanced Calendar Grid Widget
@@ -1112,7 +1224,7 @@ class CalendarGrid extends StatelessWidget {
                       dayNumber.toString(),
                       style: AppTextStyle.size(14).medium.withColor(
                             isPastDate
-                                ? AppColorToken.white
+                                ? (AppColorToken.white..color.withAlpha(50))
                                 : isSelected
                                     ? AppColorToken.black
                                     : AppColorToken.white,

@@ -148,11 +148,15 @@ class ScheduleNotificationService {
       );
     }
 
+    // Check if this is an overnight shift (end time earlier than start time)
+    final bool isOvernightShift = info.endHour < info.startHour ||
+        (info.endHour == info.startHour && info.endMinute < info.startMinute);
+
     // Schedule end notification (15 minutes before)
     final endTime = DateTime(
       nextOccurrence.year,
       nextOccurrence.month,
-      nextOccurrence.day,
+      nextOccurrence.day + (isOvernightShift ? 1 : 0), // Next day if overnight
       info.endHour,
       info.endMinute,
     ).subtract(const Duration(minutes: 15));
@@ -166,6 +170,12 @@ class ScheduleNotificationService {
         payload: 'schedule_end_$dayName',
       );
     }
+
+    // Log what we scheduled
+    debugPrint('Scheduled notifications for $dayName:');
+    debugPrint('- Start: ${startTime.toString()}, ID: $startId');
+    debugPrint(
+        '- End: ${endTime.toString()} (${isOvernightShift ? "overnight shift" : "same-day shift"}), ID: $endId');
   }
 
   // Cancel notifications for a specific day

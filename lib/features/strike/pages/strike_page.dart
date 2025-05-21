@@ -200,6 +200,7 @@ class NationwideStrikeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strikeState = ref.watch(strikeNotifierProvider);
+
     final DateTime displayDate;
     final String cardTitle;
     final bool isUserSelectedDate;

@@ -298,6 +298,7 @@ class StrikeNotifier extends _$StrikeNotifier {
       return;
     }
 
+    // Set loading state
     state = state.copyWith(status: StrikeStatus.loading);
 
     try {
@@ -310,7 +311,8 @@ class StrikeNotifier extends _$StrikeNotifier {
         strikeId: strikeId,
       );
 
-      await refreshStrikeData();
+      // Then refresh all data
+      await _initializeStrikeData();
     } catch (e) {
       state = state.copyWith(
         status: StrikeStatus.error,

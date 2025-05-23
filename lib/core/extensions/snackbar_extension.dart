@@ -7,9 +7,9 @@ extension SnackbarExtension on BuildContext {
     );
   }
 
-  void showSuccessSnackbar(String message) {
+  void showSuccessSnackbar(String message, {SnackBarAction? action}) {
     ScaffoldMessenger.of(this).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, action: action),
     );
   }
 

@@ -150,7 +150,8 @@ class _InsightSectionState extends ConsumerState<InsightSection> {
                 child: _buildInsightCard(
                   icon: Icons.directions_car,
                   title: 'Miles',
-                  value: (insightState.insights?.totalMiles ?? '0').toString(),
+                  value: (insightState.insights?.totalMiles ?? 0.0)
+                      .toStringAsFixed(2),
                   suffix: 'mi',
                 ),
               ),
@@ -159,7 +160,8 @@ class _InsightSectionState extends ConsumerState<InsightSection> {
                 child: _buildInsightCard(
                   icon: Icons.access_time_filled,
                   title: 'Hours',
-                  value: (insightState.insights?.hours ?? '0').toString(),
+                  value:
+                      (insightState.insights?.hours ?? 0.0).toStringAsFixed(2),
                   suffix: 'hrs',
                 ),
               ),

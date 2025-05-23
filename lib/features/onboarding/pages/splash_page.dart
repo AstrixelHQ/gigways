@@ -7,7 +7,6 @@ import 'package:gigways/core/extensions/snackbar_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
-import 'package:gigways/features/dashboard/pages/dashboard_page.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'dart:math' show pi;
 

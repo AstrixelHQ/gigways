@@ -85,5 +85,11 @@
     <string>$(FACEBOOK_CLIENT_TOKEN)</string>
     <key>FacebookDisplayName</key>
     <string>$(FACEBOOK_DISPLAY_NAME)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
 </dict>
 </plist>

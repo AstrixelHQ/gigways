@@ -13,6 +13,19 @@ import 'package:flutter_svg/flutter_svg.dart' as _svg;
 import 'package:lottie/lottie.dart' as _lottie;
 import 'package:vector_graphics/vector_graphics.dart' as _vg;
 
+class $AssetsFontsGen {
+  const $AssetsFontsGen();
+
+  /// File path: assets/fonts/Helvetica-Bold.ttf
+  String get helveticaBold => 'assets/fonts/Helvetica-Bold.ttf';
+
+  /// File path: assets/fonts/Helvetica.ttf
+  String get helvetica => 'assets/fonts/Helvetica.ttf';
+
+  /// List of all assets
+  List<String> get values => [helveticaBold, helvetica];
+}
+
 class $AssetsImageGen {
   const $AssetsImageGen();
 
@@ -59,6 +72,7 @@ class $AssetsSvgGen {
 class Assets {
   const Assets._();
 
+  static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsImageGen image = $AssetsImageGen();
   static const $AssetsLottieGen lottie = $AssetsLottieGen();
   static const $AssetsSvgGen svg = $AssetsSvgGen();

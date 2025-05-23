@@ -36,7 +36,7 @@ dependencies:
   flutter_hooks: ^0.20.3
   hooks_riverpod: ^2.5.1
   flutter_cache_manager: ^3.3.1
-  path_provider: ^2.1.1
+  path_provider: ^2.1.5
   cached_network_image: ^3.3.0
   image_picker: ^0.8.9
   activity_recognition_flutter: ^5.0.0
@@ -47,6 +47,8 @@ dependencies:
   json_annotation: ^4.9.0
   shared_preferences: ^2.5.3
   flutter_timezone: ^4.1.0
+  pdf: ^3.11.3
+  open_file: ^3.5.10
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +73,7 @@ flutter:
     - assets/svg/
     - assets/lottie/
     - assets/image/
+    - assets/fonts/
 
 flutter_gen:
   output: lib/core/assets/

@@ -103,7 +103,7 @@ class SettingsPage extends ConsumerWidget {
     final items = [
       (Icons.person_outline, 'Update Profile'),
       (Icons.calendar_today_outlined, 'Update Schedule'),
-      (Icons.notifications_none_outlined, 'Notification'),
+      // (Icons.notifications_none_outlined, 'Notification'),
       (Icons.info_outline, 'FAQ'),
       (Icons.lock_outline, 'Legal and Policies'),
       (Icons.share_outlined, 'Share with Other!'),
@@ -120,7 +120,7 @@ class SettingsPage extends ConsumerWidget {
             } else if (item.$2 == 'Update Schedule') {
               UpdateScheduleRoute().push(context);
             } else if (item.$2 == 'Notification') {
-              NotificationRoute().push(context);
+              // NotificationRoute().push(context);
             } else if (item.$2 == 'FAQ') {
               FaqRoute().push(context);
             } else if (item.$2 == 'Legal and Policies') {

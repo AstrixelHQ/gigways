@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
+import 'package:gigways/core/extensions/snackbar_extension.dart';
+import 'package:gigways/core/services/pdf_report_service.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/insights/models/insight_entry.dart';
 import 'package:gigways/features/insights/models/insight_period.dart';
 import 'package:gigways/features/insights/notifiers/insight_notifier.dart';
@@ -14,6 +17,7 @@ import 'package:gigways/features/insights/widgets/period_selector.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:intl/intl.dart';
+import 'package:open_file/open_file.dart';
 
 class InsightsPage extends ConsumerStatefulWidget {
   const InsightsPage({super.key});
@@ -29,6 +33,9 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   late TabController _tabController;
   final List<String> _periods =
       InsightPeriod.values.map((period) => period.displayName).toList();
+
+  // PDF Export state
+  bool _isExportingPdf = false;
 
   @override
   void initState() {
@@ -54,12 +61,20 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   Widget build(BuildContext context) {
     final selectedPeriod = ref.watch(selectedInsightProvider);
     final trackingState = ref.watch(trackingNotifierProvider);
+    final authState = ref.watch(authNotifierProvider);
+    final insightState = ref.watch(insightNotifierProvider(selectedPeriod));
 
     // Set tab controller index based on selected period
     final periodIndex = _periods.indexOf(selectedPeriod.displayName);
     if (periodIndex != -1 && _tabController.index != periodIndex) {
       _tabController.animateTo(periodIndex);
     }
+
+    // Check if export should be enabled
+    final canExport = insightState.isSuccess &&
+        insightState.sessions != null &&
+        insightState.sessions!.isNotEmpty &&
+        !_isExportingPdf;
 
     return ScaffoldWrapper(
       shouldShowGradient: true,
@@ -69,7 +84,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           children: [
             16.verticalSpace,
 
-            // Page header with back button
+            // Page header with back button and export button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -81,6 +96,14 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                     style: AppTextStyle.size(24)
                         .bold
                         .withColor(AppColorToken.golden),
+                  ),
+                  const Spacer(),
+
+                  // Export PDF Button
+                  _buildExportButton(
+                    canExport: canExport,
+                    isLoading: _isExportingPdf,
+                    onPressed: () => _handleExportPdf(selectedPeriod),
                   ),
                 ],
               ),
@@ -111,6 +134,107 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
         ),
       ),
     );
+  }
+
+  Widget _buildExportButton({
+    required bool canExport,
+    required bool isLoading,
+    required VoidCallback onPressed,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: ElevatedButton.icon(
+        onPressed: canExport ? onPressed : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canExport
+              ? AppColorToken.golden.value
+              : AppColorToken.golden.value.withAlpha(100),
+          foregroundColor: canExport
+              ? AppColorToken.black.value
+              : AppColorToken.black.value.withAlpha(150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: canExport ? 2 : 0,
+        ),
+        icon: isLoading
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColorToken.black.value,
+                  ),
+                ),
+              )
+            : Icon(
+                Icons.file_download_outlined,
+                size: 18,
+              ),
+        label: Text(
+          'Export',
+          style: AppTextStyle.size(14).medium.withColor(
+                canExport ? AppColorToken.black : AppColorToken.black
+                  ..color.withAlpha(150),
+              ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleExportPdf(InsightPeriod selectedPeriod) async {
+    final insightState = ref.read(insightNotifierProvider(selectedPeriod));
+    final authState = ref.read(authNotifierProvider);
+
+    // Check if we have data and user info
+    if (!insightState.isSuccess ||
+        insightState.sessions == null ||
+        insightState.sessions!.isEmpty ||
+        authState.userData == null) {
+      context.showErrorSnackbar('No data available to export');
+      return;
+    }
+
+    setState(() {
+      _isExportingPdf = true;
+    });
+
+    try {
+      final pdfService = ref.read(pdfReportServiceProvider);
+      final sessions = [...insightState.sessions!];
+      final insights = insightState.insights!;
+      final userName = authState.userData!.fullName ?? 'Unknown User';
+      final userState = authState.userData!.state ?? 'Unknown State';
+
+      final filePath = await pdfService.generateEarningsReport(
+        period: selectedPeriod,
+        sessions: sessions,
+        insights: insights,
+        userName: userName,
+        userState: userState,
+      );
+
+      if (filePath != null) {
+        context.showSuccessSnackbar('Report exported successfully!',
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => OpenFile.open(filePath),
+            ));
+      } else {
+        context.showErrorSnackbar('Failed to export report');
+      }
+    } catch (e) {
+      debugPrint('Error exporting PDF: $e');
+      context.showErrorSnackbar('Failed to export report: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingPdf = false;
+        });
+      }
+    }
   }
 
   Widget _buildPeriodInsightsTable(String period, TrackingState trackingState,

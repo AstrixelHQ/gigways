@@ -12,12 +12,15 @@ import 'package:gigways/features/insights/models/insight_period.dart';
 import 'package:gigways/features/insights/notifiers/insight_notifier.dart';
 import 'package:gigways/features/insights/widgets/delete_confirmation_dialog.dart';
 import 'package:gigways/features/insights/widgets/edit_entry_bottom_sheet.dart';
-import 'package:gigways/features/insights/widgets/insight_section.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
+
+final selectedInsightProvider = StateProvider<InsightPeriod>((ref) {
+  return InsightPeriod.today;
+});
 
 class InsightsPage extends ConsumerStatefulWidget {
   const InsightsPage({super.key});
@@ -34,7 +37,6 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   final List<String> _periods =
       InsightPeriod.values.map((period) => period.displayName).toList();
 
-  // PDF Export state
   bool _isExportingPdf = false;
 
   @override

@@ -6,7 +6,7 @@ import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/features/home/widgets/animated_tracker_card.dart';
-import 'package:gigways/features/insights/widgets/insight_section.dart';
+import 'package:gigways/features/home/widgets/insight_section.dart';
 import 'package:gigways/features/tracking/controllers/tracker_controller.dart';
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
@@ -21,7 +21,6 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userData = ref.watch(authNotifierProvider).userData;
     final trackingState = ref.watch(trackingNotifierProvider);
-    final trackingNotifier = ref.read(trackingNotifierProvider.notifier);
 
     // Active tracking session
     final activeSession = trackingState.activeSession;
@@ -100,7 +99,6 @@ class HomePage extends ConsumerWidget {
                 ),
                 24.verticalSpace,
 
-                // My Insights Section - Modified to be clickable and navigate to Insights page
                 InsightSection(),
                 24.verticalSpace,
 
@@ -133,7 +131,6 @@ class HomePage extends ConsumerWidget {
       expenses: session.expenses,
     );
   }
-
 
   Widget _buildNewsAndAdsSection() {
     return Column(

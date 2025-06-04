@@ -65,7 +65,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
                   16.verticalSpace,
                   // Header
                   Text(
-                    'Strike',
+                    'Voice',
                     style: AppTextStyle.size(24)
                         .bold
                         .withColor(AppColorToken.golden),
@@ -208,7 +208,7 @@ class NationwideStrikeCard extends ConsumerWidget {
     if (strikeState.userStrike != null) {
       // User's scheduled strike has highest priority
       displayDate = strikeState.userStrike!.date;
-      cardTitle = 'Your Scheduled Strike';
+      cardTitle = 'Your Scheduled Voice';
       isUserSelectedDate = true;
     } else if (strikeState.selectedDate != null) {
       // User's temporarily selected date comes next
@@ -223,7 +223,7 @@ class NationwideStrikeCard extends ConsumerWidget {
     } else {
       // Unlikely fallback case
       displayDate = DateTime.now();
-      cardTitle = 'Upcoming Strike';
+      cardTitle = 'Upcoming Voice';
       isUserSelectedDate = false;
     }
 
@@ -492,12 +492,12 @@ class UserStrikeButtons extends ConsumerWidget {
               ),
             ),
             icon: const Icon(Icons.cancel_outlined, size: 18),
-            label: const Text('Cancel Strike'),
+            label: const Text('Cancel Voice'),
             onPressed: () {
               // Show confirmation dialog
               DeleteConfirmationDialog.show(
                 context,
-                'Cancel Strike',
+                'Cancel Voice',
                 'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
                 onDelete: () {
                   ref.read(strikeNotifierProvider.notifier).cancelStrike();
@@ -529,7 +529,7 @@ class JoinStrikeButton extends ConsumerWidget {
         animation: animationController,
         builder: (context, child) {
           return AppButton(
-            text: 'Join This Strike',
+            text: 'Join This Voice',
             onPressed: () {
               ref
                   .read(strikeNotifierProvider.notifier)
@@ -548,7 +548,6 @@ class JoinStrikeButton extends ConsumerWidget {
   }
 }
 
-// Widget for schedule strike card
 class ScheduleStrikeCard extends ConsumerWidget {
   final AnimationController animationController;
   final VoidCallback onChooseDate;
@@ -601,7 +600,7 @@ class ScheduleStrikeCard extends ConsumerWidget {
               ),
               12.horizontalSpace,
               Text(
-                'Schedule Strike',
+                'Schedule Voice',
                 style:
                     AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
               ),
@@ -615,7 +614,7 @@ class ScheduleStrikeCard extends ConsumerWidget {
 
           // Popular Dates Section
           Text(
-            'Popular Strike Dates',
+            'Popular Voice Dates',
             style:
                 AppTextStyle.size(16).semiBold.withColor(AppColorToken.golden),
           ),
@@ -687,7 +686,7 @@ class StatisticsCard extends StatelessWidget {
               10.horizontalSpace,
               Expanded(
                 child: Text(
-                  'Strike to unite, demand higher wages, and improve conditions!',
+                  'Voice to unite, demand higher wages, and improve conditions!',
                   style: AppTextStyle.size(14)
                       .medium
                       .withColor(AppColorToken.white),
@@ -987,7 +986,7 @@ class CalendarView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isRescheduling ? 'Reschedule Strike' : 'Schedule Strike',
+            isRescheduling ? 'Reschedule Voice' : 'Schedule Voice',
             style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
           ),
           24.verticalSpace,
@@ -1009,7 +1008,7 @@ class CalendarView extends StatelessWidget {
               16.horizontalSpace,
               Expanded(
                 child: AppButton(
-                  text: isRescheduling ? 'Reschedule' : 'Set Strike',
+                  text: isRescheduling ? 'Reschedule' : 'Set Voice',
                   onPressed: () => onSetStrike(selectedDate),
                 ),
               ),

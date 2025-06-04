@@ -56,7 +56,7 @@ class _DashboardPageState extends State<DashboardPage> {
         destinations: [
           NavigationDestination(
             icon: Icon(Icons.access_time_filled_outlined),
-            label: 'Strike',
+            label: 'Voices',
           ),
           NavigationDestination(
             icon: Icon(Icons.home),

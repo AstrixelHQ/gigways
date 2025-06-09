@@ -34,7 +34,7 @@ class _UpdatedInsightSectionState extends ConsumerState<InsightSection> {
   @override
   Widget build(BuildContext context) {
     final summaryState = ref.watch(insightSummaryNotifierProvider);
-    final selectedPeriod = ref.watch(selectedInsightProvider);
+    final selectedPeriod = ref.watch(selectedInsightPeriodProvider);
 
     PeriodInsights? currentInsight;
 
@@ -141,7 +141,8 @@ class _UpdatedInsightSectionState extends ConsumerState<InsightSection> {
                   }).toList(),
                   onChanged: (value) {
                     if (value != null) {
-                      ref.read(selectedInsightProvider.notifier).state = value;
+                      ref.read(selectedInsightPeriodProvider.notifier).state =
+                          value;
                     }
                   },
                 ),

@@ -179,48 +179,6 @@ class TrackingRepository {
     );
   }
 
-  // Get sessions for this week
-  Future<List<TrackingSession>> getSessionsForWeek(String userId) async {
-    final now = DateTime.now();
-    // Get the start of the week (Sunday)
-    final startOfWeek = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday % 7));
-    final endOfWeek = startOfWeek
-        .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-
-    return getSessionsForTimeRange(
-      userId: userId,
-      startTime: startOfWeek,
-      endTime: endOfWeek,
-    );
-  }
-
-  // Get sessions for this month
-  Future<List<TrackingSession>> getSessionsForMonth(String userId) async {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-    return getSessionsForTimeRange(
-      userId: userId,
-      startTime: startOfMonth,
-      endTime: endOfMonth,
-    );
-  }
-
-  // Get sessions for this year
-  Future<List<TrackingSession>> getSessionsForYear(String userId) async {
-    final now = DateTime.now();
-    final startOfYear = DateTime(now.year, 1, 1);
-    final endOfYear = DateTime(now.year, 12, 31, 23, 59, 59);
-
-    return getSessionsForTimeRange(
-      userId: userId,
-      startTime: startOfYear,
-      endTime: endOfYear,
-    );
-  }
-
   // Delete a tracking session
   Future<void> deleteSession(
       {required String userId, required String sessionId}) async {

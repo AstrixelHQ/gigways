@@ -4,7 +4,6 @@ import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
 import 'package:gigways/core/services/driving_detection_service.dart';
-import 'package:gigways/core/services/notification_service.dart';
 
 class ActivityService with WidgetsBindingObserver {
   // Singleton instance
@@ -26,7 +25,6 @@ class ActivityService with WidgetsBindingObserver {
 
   // Dependencies
   final DrivingDetectionService _drivingDetectionService = DrivingDetectionService();
-  final NotificationService _notificationService = NotificationService();
 
   // Flag to control background operation
   bool _isRunningInBackground = false;

@@ -1,5 +1,3 @@
-// lib/features/home/widgets/updated_insight_section.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
@@ -8,10 +6,12 @@ import 'package:gigways/core/theme/app_text_styles.dart';
 import 'package:gigways/features/insights/models/insight_period.dart';
 import 'package:gigways/features/insights/models/insight_summary_models.dart';
 import 'package:gigways/features/insights/notifiers/insight_summary_notifier.dart';
-import 'package:gigways/features/insights/pages/insights_page.dart';
 import 'package:gigways/routers/app_router.dart';
 
-/// Updated insight section using the new summary system
+final selectedInsightPeriodProvider = StateProvider<InsightPeriod>((ref) {
+  return InsightPeriod.today;
+});
+
 class InsightSection extends ConsumerStatefulWidget {
   const InsightSection({Key? key}) : super(key: key);
 

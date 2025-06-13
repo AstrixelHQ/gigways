@@ -49,14 +49,19 @@ class StrikeState {
     int? totalUsers,
     int? stateUsers,
     String? userState,
+    bool clearUserStrike = false,
+    bool clearErrorMessage = false,
+    bool clearSelectedDate = false,
+    bool clearSelectedDateStats = false,
+    bool clearMostPopularDate = false,
   }) {
     return StrikeState(
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
-      userStrike: userStrike ?? this.userStrike,
-      selectedDate: selectedDate ?? this.selectedDate,
-      selectedDateStats: selectedDateStats ?? this.selectedDateStats,
-      mostPopularDate: mostPopularDate ?? this.mostPopularDate,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      userStrike: clearUserStrike ? null : (userStrike ?? this.userStrike),
+      selectedDate: clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
+      selectedDateStats: clearSelectedDateStats ? null : (selectedDateStats ?? this.selectedDateStats),
+      mostPopularDate: clearMostPopularDate ? null : (mostPopularDate ?? this.mostPopularDate),
       upcomingStrikeDates: upcomingStrikeDates ?? this.upcomingStrikeDates,
       totalUsers: totalUsers ?? this.totalUsers,
       stateUsers: stateUsers ?? this.stateUsers,
@@ -157,6 +162,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         upcomingStrikeDates: upcomingStrikeCounts,
         totalUsers: totalUsers,
         stateUsers: stateUsers,
+        clearErrorMessage: true, // Clear any previous errors
       );
     } catch (e) {
       state = state.copyWith(
@@ -213,15 +219,35 @@ class StrikeNotifier extends _$StrikeNotifier {
     state = state.copyWith(status: StrikeStatus.loading);
 
     try {
+      final userId = authState.user!.uid;
+      
       // Create a new strike
-      await _repository.createStrike(
-        userId: authState.user!.uid,
+      final newStrikeId = await _repository.createStrike(
+        userId: userId,
         date: date,
         state: authState.userData!.state!,
         userName: authState.userData!.fullName,
       );
+      
+      // Immediately update UI with new strike info
+      final newStrike = StrikeModel(
+        id: newStrikeId,
+        userId: userId,
+        dateString: StrikeModel.formatDateString(date),
+        date: date,
+        state: authState.userData!.state!,
+        createdAt: DateTime.now(),
+        userName: authState.userData!.fullName,
+      );
+      
+      state = state.copyWith(
+        status: StrikeStatus.success,
+        userStrike: newStrike,
+        selectedDate: date,
+        clearErrorMessage: true,
+      );
 
-      // Refresh all data
+      // Refresh all data in background to get updated counts
       await _initializeStrikeData();
     } catch (e) {
       state = state.copyWith(
@@ -272,13 +298,32 @@ class StrikeNotifier extends _$StrikeNotifier {
       }
 
       // Create a new strike
-      await _repository.createStrike(
+      final newStrikeId = await _repository.createStrike(
         userId: userId,
         date: newDate,
         state: authState.userData!.state!,
         userName: authState.userData!.fullName,
       );
+      
+      // Immediately update UI with new strike info
+      final newStrike = StrikeModel(
+        id: newStrikeId,
+        userId: userId,
+        dateString: StrikeModel.formatDateString(newDate),
+        date: newDate,
+        state: authState.userData!.state!,
+        createdAt: DateTime.now(),
+        userName: authState.userData!.fullName,
+      );
+      
+      state = state.copyWith(
+        status: StrikeStatus.success,
+        userStrike: newStrike,
+        selectedDate: newDate,
+        clearErrorMessage: true,
+      );
 
+      // Then refresh all data in background to get updated counts
       await _initializeStrikeData();
     } catch (e) {
       state = state.copyWith(
@@ -291,6 +336,7 @@ class StrikeNotifier extends _$StrikeNotifier {
   Future<void> cancelStrike() async {
     final authState = ref.read(authNotifierProvider);
     if (authState.user == null || state.userStrike == null) {
+      print('Cancel strike failed: User not authenticated or no strike to cancel');
       state = state.copyWith(
         status: StrikeStatus.error,
         errorMessage: 'User not authenticated or no strike to cancel',
@@ -299,21 +345,38 @@ class StrikeNotifier extends _$StrikeNotifier {
     }
 
     // Set loading state
+    print('Setting loading state for strike cancellation');
     state = state.copyWith(status: StrikeStatus.loading);
 
     try {
       final userId = authState.user!.uid;
       final strikeId = state.userStrike!.id;
+      
+      print('Canceling strike - User ID: $userId, Strike ID: $strikeId');
 
       // Cancel the strike
       await _repository.cancelStrike(
         userId: userId,
         strikeId: strikeId,
       );
-
-      // Then refresh all data
+      
+      print('Strike canceled successfully, updating UI state immediately');
+      
+      // Immediately clear the userStrike and update UI
+      state = state.copyWith(
+        status: StrikeStatus.success,
+        clearUserStrike: true,
+        clearSelectedDate: true,
+        clearSelectedDateStats: true,
+        clearErrorMessage: true,
+      );
+      
+      // Then refresh all data in background to get updated counts
       await _initializeStrikeData();
+      
+      print('Data refresh completed after strike cancellation');
     } catch (e) {
+      print('Error during strike cancellation: $e');
       state = state.copyWith(
         status: StrikeStatus.error,
         errorMessage: e.toString(),

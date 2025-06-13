@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
-import 'package:gigways/core/extensions/snackbar_extension.dart';
-import 'package:gigways/core/services/pdf_report_service.dart';
 import 'package:gigways/core/theme/themes.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
-import 'package:gigways/features/insights/models/insight_entry.dart';
 import 'package:gigways/features/insights/models/insight_period.dart';
-import 'package:gigways/features/insights/notifiers/insight_notifier.dart';
-import 'package:gigways/features/insights/widgets/delete_confirmation_dialog.dart';
-import 'package:gigways/features/insights/widgets/edit_entry_bottom_sheet.dart';
+import 'package:gigways/features/insights/models/paginated_insights.dart';
+import 'package:gigways/features/insights/notifiers/paginated_insight_notifier.dart';
+import 'package:gigways/features/insights/services/pdf_export_service.dart';
 import 'package:gigways/features/insights/widgets/period_selector.dart';
-import 'package:gigways/features/tracking/models/tracking_model.dart';
-import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
-import 'package:intl/intl.dart';
-import 'package:open_file/open_file.dart';
+import 'package:gigways/features/insights/widgets/summary_card_widget.dart';
 
 final selectedInsightProvider = StateProvider<InsightPeriod>((ref) {
   return InsightPeriod.today;
@@ -36,13 +30,20 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   late TabController _tabController;
   final List<String> _periods =
       InsightPeriod.values.map((period) => period.displayName).toList();
-
+  final Map<InsightPeriod, ScrollController> _scrollControllers = {};
   bool _isExportingPdf = false;
+  bool _canExport = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+
+    // Initialize scroll controllers for each period
+    for (final period in InsightPeriod.values) {
+      _scrollControllers[period] = ScrollController();
+      _scrollControllers[period]!.addListener(() => _onScroll(period));
+    }
 
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
@@ -51,32 +52,55 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
       ref.read(selectedInsightProvider.notifier).state =
           InsightPeriod.fromString(selectedPeriod);
     });
+
+    // Check export eligibility
+    _checkExportEligibility();
+  }
+
+  void _checkExportEligibility() async {
+    try {
+      final pdfService = ref.read(pdfExportServiceProvider);
+      final user = ref.read(authNotifierProvider).user;
+      if (user != null) {
+        final canExport = await pdfService.canUserExport(user.uid);
+        setState(() {
+          _canExport = canExport;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _canExport = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _onScroll(InsightPeriod period) {
+    final controller = _scrollControllers[period]!;
+    if (controller.position.pixels >=
+        controller.position.maxScrollExtent - 200) {
+      // Load more when near bottom
+      ref.read(paginatedInsightNotifierProvider(period).notifier).loadMore();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedPeriod = ref.watch(selectedInsightProvider);
-    final trackingState = ref.watch(trackingNotifierProvider);
-    final authState = ref.watch(authNotifierProvider);
-    final insightState = ref.watch(insightNotifierProvider(selectedPeriod));
 
     // Set tab controller index based on selected period
     final periodIndex = _periods.indexOf(selectedPeriod.displayName);
     if (periodIndex != -1 && _tabController.index != periodIndex) {
       _tabController.animateTo(periodIndex);
     }
-
-    // Check if export should be enabled
-    final canExport = insightState.isSuccess &&
-        insightState.sessions != null &&
-        insightState.sessions!.isNotEmpty &&
-        !_isExportingPdf;
 
     return ScaffoldWrapper(
       shouldShowGradient: true,
@@ -101,12 +125,13 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                   ),
                   const Spacer(),
 
-                  // Export PDF Button
-                  _buildExportButton(
-                    canExport: canExport,
-                    isLoading: _isExportingPdf,
-                    onPressed: () => _handleExportPdf(selectedPeriod),
-                  ),
+                  // Export PDF Button - only show for yearly
+                  if (selectedPeriod == InsightPeriod.yearly)
+                    _buildExportButton(
+                      onPressed: _canExport && !_isExportingPdf
+                          ? () => _handleExportPdf(selectedPeriod)
+                          : null,
+                    ),
                 ],
               ),
             ),
@@ -127,8 +152,8 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
               child: TabBarView(
                 controller: _tabController,
                 children: _periods
-                    .map((period) => _buildPeriodInsightsTable(
-                        period, trackingState, selectedPeriod))
+                    .map((period) => _buildPeriodInsightsView(
+                        InsightPeriod.fromString(period)))
                     .toList(),
               ),
             ),
@@ -139,123 +164,412 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   }
 
   Widget _buildExportButton({
-    required bool canExport,
-    required bool isLoading,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      child: ElevatedButton.icon(
-        onPressed: canExport ? onPressed : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: canExport
-              ? AppColorToken.golden.value
-              : AppColorToken.golden.value.withAlpha(100),
-          foregroundColor: canExport
-              ? AppColorToken.black.value
-              : AppColorToken.black.value.withAlpha(150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          elevation: canExport ? 2 : 0,
+    String buttonText = 'Export';
+    IconData buttonIcon = Icons.file_download_outlined;
+
+    if (_isExportingPdf) {
+      buttonText = 'Exporting...';
+    } else if (!_canExport) {
+      buttonText = 'Export Used';
+      buttonIcon = Icons.block;
+    }
+
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _canExport && !_isExportingPdf
+            ? AppColorToken.golden.value
+            : AppColorToken.darkGrey.value,
+        foregroundColor: AppColorToken.black.value,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
-        icon: isLoading
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColorToken.black.value,
-                  ),
+        elevation: 2,
+      ),
+      icon: _isExportingPdf
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColorToken.black.value,
                 ),
-              )
-            : Icon(
-                Icons.file_download_outlined,
-                size: 18,
               ),
-        label: Text(
-          'Export',
-          style: AppTextStyle.size(14).medium.withColor(
-                canExport ? AppColorToken.black : AppColorToken.black
-                  ..color.withAlpha(150),
-              ),
-        ),
+            )
+          : Icon(
+              buttonIcon,
+              size: 18,
+            ),
+      label: Text(
+        buttonText,
+        style: AppTextStyle.size(14).medium.withColor(AppColorToken.black),
       ),
     );
   }
 
   Future<void> _handleExportPdf(InsightPeriod selectedPeriod) async {
-    final insightState = ref.read(insightNotifierProvider(selectedPeriod));
-    final authState = ref.read(authNotifierProvider);
+    if (!_canExport || _isExportingPdf) return;
 
-    // Check if we have data and user info
-    if (!insightState.isSuccess ||
-        insightState.sessions == null ||
-        insightState.sessions!.isEmpty ||
-        authState.userData == null) {
-      context.showErrorSnackbar('No data available to export');
-      return;
-    }
+    // Show confirmation dialog
+    final shouldExport = await _showExportConfirmationDialog();
+    if (!shouldExport) return;
 
     setState(() {
       _isExportingPdf = true;
     });
 
-    try {
-      final pdfService = ref.read(pdfReportServiceProvider);
-      final sessions = [...insightState.sessions!];
-      final insights = insightState.insights!;
-      final userName = authState.userData!.fullName ?? 'Unknown User';
-      final userState = authState.userData!.state ?? 'Unknown State';
+    String currentStep = 'Preparing export...';
+    late ScaffoldMessengerState scaffoldMessenger;
 
-      final filePath = await pdfService.generateEarningsReport(
-        period: selectedPeriod,
-        sessions: sessions,
-        insights: insights,
-        userName: userName,
-        userState: userState,
+    try {
+      scaffoldMessenger = ScaffoldMessenger.of(context);
+      final pdfService = ref.read(pdfExportServiceProvider);
+      final currentYear = DateTime.now().year;
+
+      // Show progress dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColorToken.black.value,
+          content: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: AppColorToken.golden.color,
+                  ),
+                  16.verticalSpace,
+                  Text(
+                    currentStep,
+                    style: AppTextStyle.size(14)
+                        .medium
+                        .withColor(AppColorToken.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       );
 
-      if (filePath != null) {
-        context.showSuccessSnackbar('Report exported successfully!',
-            action: SnackBarAction(
-              label: 'Open',
-              onPressed: () => OpenFile.open(filePath),
-            ));
+      // Update progress steps
+      void updateProgress(String step) {
+        currentStep = step;
+        if (mounted) {
+          setState(() {});
+        }
+      }
+
+      updateProgress('Fetching yearly data...');
+
+      final result = await pdfService.exportYearlyInsights(
+        year: currentYear,
+        onProgress: () => updateProgress('Generating PDF...'),
+      );
+
+      // Close progress dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      setState(() {
+        _isExportingPdf = false;
+      });
+
+      if (result.success && result.filePath != null) {
+        // Update export eligibility
+        setState(() {
+          _canExport = false;
+        });
+
+        // Show success dialog
+        _showSuccessDialog(result.filePath!, pdfService);
       } else {
-        context.showErrorSnackbar('Failed to export report');
+        // Show error message
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to export PDF'),
+            backgroundColor: AppColorToken.error.value,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     } catch (e) {
-      debugPrint('Error exporting PDF: $e');
-      context.showErrorSnackbar('Failed to export report: ${e.toString()}');
-    } finally {
+      // Close progress dialog if open
       if (mounted) {
-        setState(() {
-          _isExportingPdf = false;
-        });
+        Navigator.of(context).pop();
       }
+
+      setState(() {
+        _isExportingPdf = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error exporting PDF: $e'),
+          backgroundColor: AppColorToken.error.value,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
   }
 
-  Widget _buildPeriodInsightsTable(String period, TrackingState trackingState,
-      InsightPeriod selectedPeriod) {
-    // Get real tracking sessions based on the selected period
-    final insight = ref.watch(insightNotifierProvider(selectedPeriod));
-    final sessions = insight.sessions;
-    final insights = _convertSessionsToEntries([...?sessions]);
+  Future<bool> _showExportConfirmationDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColorToken.black.value,
+            title: Text(
+              'Export Yearly Report',
+              style: AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This will generate a PDF report for ${DateTime.now().year} containing:',
+                  style: AppTextStyle.size(14)
+                      .regular
+                      .withColor(AppColorToken.white),
+                ),
+                12.verticalSpace,
+                _buildFeatureBullet(
+                    'Monthly breakdown of miles, hours, earnings, and expenses'),
+                _buildFeatureBullet('Yearly summary with totals'),
+                _buildFeatureBullet('Minimalist design for easy reading'),
+                16.verticalSpace,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColorToken.orange.value.withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColorToken.orange.value.withAlpha(100),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: AppColorToken.orange.value,
+                        size: 20,
+                      ),
+                      12.horizontalSpace,
+                      Expanded(
+                        child: Text(
+                          'You can only export once per month to control costs.',
+                          style: AppTextStyle.size(12)
+                              .regular
+                              .withColor(AppColorToken.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: AppTextStyle.size(14)
+                      .medium
+                      .withColor(AppColorToken.darkGrey),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColorToken.golden.value,
+                  foregroundColor: AppColorToken.black.value,
+                ),
+                child: Text(
+                  'Export PDF',
+                  style: AppTextStyle.size(14)
+                      .medium
+                      .withColor(AppColorToken.black),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Widget _buildFeatureBullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style:
+                AppTextStyle.size(14).regular.withColor(AppColorToken.golden),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style:
+                  AppTextStyle.size(12).regular.withColor(AppColorToken.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessDialog(String filePath, PdfExportService pdfService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColorToken.black.value,
+        title: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: AppColorToken.success.value,
+              size: 24,
+            ),
+            12.horizontalSpace,
+            Text(
+              'Export Successful!',
+              style:
+                  AppTextStyle.size(18).bold.withColor(AppColorToken.success),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Your yearly insights report has been generated successfully.',
+              style:
+                  AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+              textAlign: TextAlign.center,
+            ),
+            16.verticalSpace,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColorToken.golden.value.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.description,
+                    color: AppColorToken.golden.value,
+                    size: 20,
+                  ),
+                  12.horizontalSpace,
+                  Expanded(
+                    child: Text(
+                      'gigways_insights_${DateTime.now().year}.pdf',
+                      style: AppTextStyle.size(12)
+                          .medium
+                          .withColor(AppColorToken.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Close',
+              style: AppTextStyle.size(14)
+                  .medium
+                  .withColor(AppColorToken.darkGrey),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              pdfService.openPdf(filePath);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColorToken.golden.value,
+              foregroundColor: AppColorToken.black.value,
+            ),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(
+              'Open PDF',
+              style:
+                  AppTextStyle.size(14).medium.withColor(AppColorToken.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodInsightsView(InsightPeriod period) {
+    final controller = _scrollControllers[period]!;
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final state = ref.watch(paginatedInsightNotifierProvider(period));
+
+        if (state.isLoading || state.isInitial) {
+          return Center(
+            child: CircularProgressIndicator(
+              color: AppColorToken.golden.color,
+            ),
+          );
+        } else if (state.isLoadingMore) {
+          return _buildSuccessView(
+            state.displayData ?? [],
+            controller,
+            true,
+          );
+        } else if (state.isSuccess) {
+          return _buildSuccessView(
+            state.displayData ?? [],
+            controller,
+            false,
+            hasMore: state.data?.hasMore ?? false,
+          );
+        } else if (state.isError) {
+          return _buildErrorView('Error loading insights');
+        } else {
+          return const Center(child: Text('Loading...'));
+        }
+      },
+    );
+  }
+
+  Widget _buildSuccessView(
+    List<SummaryCardData> displayData,
+    ScrollController controller,
+    bool isLoadingMore, {
+    bool hasMore = false,
+  }) {
+    if (displayData.isEmpty) {
+      return _buildEmptyState();
+    }
 
     return Column(
       children: [
-        // Table header
+        // Header
         Padding(
-          padding:
-              const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
               Text(
-                'Activity Logs',
+                'Activity Summary',
                 style:
                     AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
               ),
@@ -271,7 +585,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                   ),
                 ),
                 child: Text(
-                  '${sessions?.length ?? 0} entries',
+                  '${displayData.length} ${displayData.length == 1 ? 'entry' : 'entries'}',
                   style: AppTextStyle.size(12)
                       .medium
                       .withColor(AppColorToken.white),
@@ -281,312 +595,42 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           ),
         ),
 
-        // Table content
+        // Scrollable list
         Expanded(
-          child: (() {
-            if (insight.isLoading) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: AppColorToken.golden.color,
-                ),
+          child: ListView.builder(
+            controller: controller,
+            itemCount: displayData.length + (isLoadingMore || hasMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == displayData.length) {
+                // Loading indicator at bottom
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColorToken.golden.color,
+                    ),
+                  ),
+                );
+              }
+
+              final data = displayData[index];
+              final isLast = index == displayData.length - 1 && !hasMore;
+
+              return SummaryCardWidget(
+                data: data,
+                isLast: isLast,
+                onTap: () {
+                  // TODO: Add detailed view navigation
+                },  
               );
-            } else if (sessions == null || sessions.isEmpty) {
-              return _buildEmptyState();
-            } else {
-              return ListView.builder(
-                itemCount: insights.length,
-                itemBuilder: (context, index) {
-                  final item = insights[index];
-                  final isAlternateRow = index % 2 == 1;
-                  return _buildTableRow(
-                      context, item, isAlternateRow, sessions[index]);
-                },
-              );
-            }
-          })(),
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildTableRow(BuildContext context, InsightEntry item,
-      bool isAlternateRow, TrackingSession session) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: isAlternateRow
-            ? AppColorToken.black.value.withAlpha(40)
-            : AppColorToken.black.value.withAlpha(60),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColorToken.golden.value.withAlpha(20),
-          width: 0.5,
-        ),
-      ),
-      child: Column(
-        children: [
-          // Main row content
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Date and Time Column - Combined for better readability
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.date,
-                        style: AppTextStyle.size(16)
-                            .medium
-                            .withColor(AppColorToken.white),
-                      ),
-                      4.verticalSpace,
-                      Text(
-                        item.time,
-                        style: AppTextStyle.size(14).regular.withColor(
-                            AppColorToken.white..color.withAlpha(180)),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Financial details
-                Expanded(
-                  flex: 5,
-                  child: Row(
-                    children: [
-                      // Miles + Hours column
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.directions_car_outlined,
-                                  color: AppColorToken.golden.value,
-                                  size: 14,
-                                ),
-                                4.horizontalSpace,
-                                Text(
-                                  '${item.miles.toStringAsFixed(1)} mi',
-                                  style: AppTextStyle.size(14)
-                                      .regular
-                                      .withColor(AppColorToken.white),
-                                ),
-                              ],
-                            ),
-                            6.verticalSpace,
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time_outlined,
-                                  color: AppColorToken.golden.value,
-                                  size: 14,
-                                ),
-                                4.horizontalSpace,
-                                Text(
-                                  '${item.hours.toStringAsFixed(1)} hrs',
-                                  style: AppTextStyle.size(14)
-                                      .regular
-                                      .withColor(AppColorToken.white),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Earnings + Expenses column
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.arrow_upward,
-                                  color: Colors.green,
-                                  size: 14,
-                                ),
-                                4.horizontalSpace,
-                                Text(
-                                  '\$${item.earnings.toStringAsFixed(2)}',
-                                  style: AppTextStyle.size(14)
-                                      .medium
-                                      .withColor(AppColorToken.green),
-                                ),
-                              ],
-                            ),
-                            6.verticalSpace,
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.arrow_downward,
-                                  color: AppColorToken.red.color,
-                                  size: 14,
-                                ),
-                                4.horizontalSpace,
-                                Text(
-                                  '\$${item.expenses.toStringAsFixed(2)}',
-                                  style: AppTextStyle.size(14)
-                                      .medium
-                                      .withColor(AppColorToken.red),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Actions column
-                Container(
-                  width: 38,
-                  child: PopupMenuButton(
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: AppColorToken.golden.value,
-                    ),
-                    color: AppColorToken.black.value,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: AppColorToken.golden.value.withAlpha(50),
-                      ),
-                    ),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.edit_outlined,
-                              color: AppColorToken.golden.value,
-                              size: 18,
-                            ),
-                            8.horizontalSpace,
-                            Text(
-                              'Edit',
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outlined,
-                              color: AppColorToken.red.color,
-                              size: 18,
-                            ),
-                            8.horizontalSpace,
-                            Text(
-                              'Delete',
-                              style: AppTextStyle.size(14)
-                                  .regular
-                                  .withColor(AppColorToken.red),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        EditEntryBottomSheet.show(
-                            context, item, session, _updateSession);
-                      } else if (value == 'delete') {
-                        DeleteConfirmationDialog.show(
-                          context,
-                          'Delete Entry',
-                          'Are you sure you want to delete this entry? This action cannot be undone.',
-                          onDelete: () {
-                            Navigator.pop(context);
-
-                            ref
-                                .read(insightNotifierProvider(
-                                        ref.read(selectedInsightProvider))
-                                    .notifier)
-                                .deleteInsight(session);
-                          },
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Net row - shows the net earnings
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColorToken.black.value.withAlpha(100),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'Net:',
-                  style: AppTextStyle.size(14)
-                      .regular
-                      .withColor(AppColorToken.white..color.withAlpha(150)),
-                ),
-                8.horizontalSpace,
-                Text(
-                  '\$${(item.earnings - item.expenses).toStringAsFixed(2)}',
-                  style: AppTextStyle.size(16)
-                      .bold
-                      .withColor(AppColorToken.golden),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Update the session with new values
-  void _updateSession(
-    TrackingSession session, {
-    required double miles,
-    required double hours,
-    required double earnings,
-    required double expenses,
-  }) {
-    // Convert hours to seconds
-    final durationInSeconds = (hours * 3600).round();
-
-    // Update the session in the insight notifier
-    ref
-        .read(
-            insightNotifierProvider(ref.read(selectedInsightProvider)).notifier)
-        .updateInsight(
-          session,
-          miles: miles,
-          durationInSeconds: durationInSeconds,
-          earnings: earnings,
-          expenses: expenses,
-        );
-  }
-
-  Widget _buildEmptyState() {
+  Widget _buildErrorView(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -594,19 +638,19 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.note_alt_outlined,
+              Icons.error_outline,
               size: 48,
-              color: AppColorToken.white.value.withAlpha(100),
+              color: AppColorToken.red.color,
             ),
             16.verticalSpace,
             Text(
-              'No activity logs available',
+              'Error loading insights',
               style:
                   AppTextStyle.size(16).medium.withColor(AppColorToken.white),
             ),
             8.verticalSpace,
             Text(
-              'Start tracking to see your activity here',
+              message,
               style: AppTextStyle.size(14).regular.withColor(
                     AppColorToken.white..color.withAlpha(70),
                   ),
@@ -618,41 +662,35 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
     );
   }
 
-  // Convert tracking sessions to table entries
-  List<InsightEntry> _convertSessionsToEntries(List<TrackingSession> sessions) {
-    final dateFormatter = DateFormat('MMM dd, yyyy');
-    final timeFormatter = DateFormat('h:mm a');
-
-    // Sort sessions by start time (newest first)
-    sessions.sort((a, b) => b.startTime.compareTo(a.startTime));
-
-    return sessions.map((session) {
-      // Format date and time
-      final date = dateFormatter.format(session.startTime);
-
-      // Format time range
-      final startTime = timeFormatter.format(session.startTime);
-      final endTime = session.endTime != null
-          ? timeFormatter.format(session.endTime!)
-          : 'In Progress';
-      final time = '$startTime - $endTime';
-
-      // Calculate hours (from seconds)
-      final hours = session.durationInSeconds / 3600;
-
-      // Get miles, earnings, and expenses from the session
-      final miles = session.miles;
-      final earnings = session.earnings ?? 0.0;
-      final expenses = session.expenses ?? 0.0;
-
-      return InsightEntry(
-        date: date,
-        time: time,
-        miles: miles,
-        hours: hours,
-        earnings: earnings,
-        expenses: expenses,
-      );
-    }).toList();
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.insights_outlined,
+              size: 48,
+              color: AppColorToken.white.value.withAlpha(100),
+            ),
+            16.verticalSpace,
+            Text(
+              'No activity data available',
+              style:
+                  AppTextStyle.size(16).medium.withColor(AppColorToken.white),
+            ),
+            8.verticalSpace,
+            Text(
+              'Start tracking to see your insights here',
+              style: AppTextStyle.size(14).regular.withColor(
+                    AppColorToken.white..color.withAlpha(70),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

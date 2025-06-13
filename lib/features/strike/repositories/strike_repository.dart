@@ -238,7 +238,18 @@ class StrikeRepository {
     required String strikeId,
   }) async {
     try {
+      print('Attempting to cancel strike with ID: $strikeId');
+      
+      // Check if document exists before attempting to delete
+      final docSnapshot = await _firestore.collection('strikes').doc(strikeId).get();
+      if (!docSnapshot.exists) {
+        print('Strike document does not exist: $strikeId');
+        throw Exception('Strike document not found');
+      }
+      
+      print('Strike document found, proceeding with deletion');
       await _firestore.collection('strikes').doc(strikeId).delete();
+      print('Strike successfully deleted: $strikeId');
     } catch (e) {
       print('Error canceling strike: $e');
       rethrow;

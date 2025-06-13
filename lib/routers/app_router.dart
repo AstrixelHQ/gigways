@@ -149,26 +149,6 @@ class FaqRoute extends GoRouteData {
   }
 }
 
-@TypedGoRoute<LegalPoliciesRoute>(path: LegalPoliciesPage.path)
-class LegalPoliciesRoute extends GoRouteData {
-  @override
-  Widget build(BuildContext context, GoRouterState state) {
-    return const LegalPoliciesPage();
-  }
-}
-
-@TypedGoRoute<PolicyDetailRoute>(path: PolicyDetailPage.path)
-class PolicyDetailRoute extends GoRouteData {
-  final PolicyModel $extra;
-
-  PolicyDetailRoute({required this.$extra});
-
-  @override
-  Widget build(BuildContext context, GoRouterState state) {
-    return PolicyDetailPage(policy: $extra);
-  }
-}
-
 @TypedGoRoute<CommentRoute>(path: CommentsPage.path)
 class CommentRoute extends GoRouteData {
   final PostModel $extra;

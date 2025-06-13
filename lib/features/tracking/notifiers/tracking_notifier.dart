@@ -242,6 +242,7 @@ class TrackingNotifier extends _$TrackingNotifier {
 
     final authState = ref.read(authNotifierProvider);
     if (authState.user == null) {
+      print('TrackingNotifier: User not authenticated during initialization');
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: 'User not authenticated',
@@ -249,16 +250,23 @@ class TrackingNotifier extends _$TrackingNotifier {
       return;
     }
 
+    print('TrackingNotifier: Initializing tracking state for user ${authState.user!.uid}');
     state = state.copyWith(status: TrackingStatus.loading);
 
     try {
       // Check for active session
       final userId = authState.user!.uid;
       final activeSession = await _repository.getActiveSession(userId);
+      
+      print('TrackingNotifier: Active session found: ${activeSession?.id}');
+      print('TrackingNotifier: Session is active: ${activeSession?.isActive}');
 
       if (activeSession != null) {
+        print('TrackingNotifier: Resuming tracking for session ${activeSession.id}');
         // If there's an active session, resume tracking
         await _resumeTracking(activeSession);
+      } else {
+        print('TrackingNotifier: No active session found');
       }
 
       state = state.copyWith(
@@ -267,7 +275,10 @@ class TrackingNotifier extends _$TrackingNotifier {
             : TrackingStatus.inactive,
         activeSession: activeSession,
       );
+      
+      print('TrackingNotifier: Initialization complete, status: ${state.status}');
     } catch (e) {
+      print('TrackingNotifier: Error during initialization: $e');
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: e.toString(),
@@ -583,9 +594,95 @@ class TrackingNotifier extends _$TrackingNotifier {
     }
   }
 
-  // Skip earnings entry
+  // Skip earnings entry and force end shift
   Future<void> skipEarningsEntry() async {
-    await endShift();
+    await endShift(earnings: 0.0, expenses: 0.0);
+  }
+  
+  // Force end shift immediately (used when user turns off tracker or skips)
+  Future<void> forceEndShift() async {
+    print('forceEndShift called');
+    
+    final authState = ref.read(authNotifierProvider);
+    if (authState.user == null) {
+      print('User not authenticated');
+      state = state.copyWith(
+        status: TrackingStatus.error,
+        errorMessage: 'User not authenticated',
+      );
+      return;
+    }
+
+    if (state.activeSession == null) {
+      print('No active session found, resetting state');
+      // If no active session but state shows endingShift, reset to inactive
+      state = state.copyWith(
+        status: TrackingStatus.inactive,
+        activeSession: null,
+        currentLocations: [],
+      );
+      return;
+    }
+
+    print('Setting loading state');
+    state = state.copyWith(status: TrackingStatus.loading);
+
+    final userId = authState.user!.uid;
+    final sessionId = state.activeSession!.id;
+    
+    print('Ending session - User: $userId, Session: $sessionId');
+
+    try {
+      // Stop all location tracking and timers first
+      await _locationService.stopTracking();
+      _trackingTimer?.cancel();
+      _locationSubscription?.cancel();
+      _inactivityTimer?.cancel();
+      
+      print('Stopped tracking services');
+
+      // End session in repository - store miles and duration, skip earnings/expenses
+      await _repository.endSession(
+        userId: userId,
+        sessionId: sessionId,
+        endTime: DateTime.now(),
+        skipEarningsEntry: true, // This tells repository we're skipping earnings
+      );
+      
+      print('Session ended in repository');
+
+      // Cancel any ongoing notifications
+      _notificationService.cancel(102); // Background tracking notification
+      _notificationService.cancel(104); // Inactivity notification
+
+      // Re-enable driving detection
+      _drivingDetectionService.setDetectionEnabled(true);
+      
+      print('Cleaned up notifications and re-enabled driving detection');
+
+      // Also ensure all other active sessions are ended
+      await _repository.endAllActiveSessions(
+        userId,
+        endTime: DateTime.now(),
+      );
+      
+      print('Ended all active sessions');
+
+      // Reset state to inactive
+      state = state.copyWith(
+        status: TrackingStatus.inactive,
+        activeSession: null,
+        currentLocations: [],
+      );
+      
+      print('State reset to inactive');
+    } catch (e) {
+      print('Error in forceEndShift: $e');
+      state = state.copyWith(
+        status: TrackingStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
   }
 
   void setInsightPeriod(String period) {

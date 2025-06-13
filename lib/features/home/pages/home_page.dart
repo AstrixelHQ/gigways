@@ -96,6 +96,9 @@ class HomePage extends ConsumerWidget {
                           expenses: expenses,
                         );
                   },
+                  onForceEndShift: () {
+                    ref.read(trackerControllerProvider.notifier).forceEndShift();
+                  },
                 ),
                 24.verticalSpace,
 

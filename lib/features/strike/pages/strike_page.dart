@@ -50,6 +50,18 @@ class _StrikePageState extends ConsumerState<StrikePage>
   Widget build(BuildContext context) {
     final strikeState = ref.watch(strikeNotifierProvider);
     final isLoading = strikeState.status == StrikeStatus.loading;
+    ref.listen<StrikeState>(strikeNotifierProvider, (previous, next) {
+      // If we just completed a cancellation successfully, close calendar
+      if (previous?.status == StrikeStatus.loading &&
+          next.status == StrikeStatus.success &&
+          previous?.userStrike != null &&
+          next.userStrike == null &&
+          showCalendar) {
+        setState(() {
+          showCalendar = false;
+        });
+      }
+    });
 
     return LoadingOverlay(
       isLoading: isLoading,
@@ -63,12 +75,36 @@ class _StrikePageState extends ConsumerState<StrikePage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   16.verticalSpace,
-                  // Header
-                  Text(
-                    'Voice',
-                    style: AppTextStyle.size(24)
-                        .bold
-                        .withColor(AppColorToken.golden),
+                  // Header with info icon
+                  Row(
+                    children: [
+                      Text(
+                        'Voice',
+                        style: AppTextStyle.size(24)
+                            .bold
+                            .withColor(AppColorToken.golden),
+                      ),
+                      8.horizontalSpace,
+                      GestureDetector(
+                        onTap: () => _showVoiceDisclaimer(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColorToken.golden.value.withAlpha(20),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColorToken.golden.value.withAlpha(60),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: AppColorToken.golden.value,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   24.verticalSpace,
 
@@ -152,6 +188,104 @@ class _StrikePageState extends ConsumerState<StrikePage>
       ),
     );
   }
+
+  /// Show voice feature disclaimer dialog
+  void _showVoiceDisclaimer(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColorToken.black.value,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppColorToken.golden.value.withAlpha(60),
+            width: 1,
+          ),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: AppColorToken.golden.value,
+              size: 24,
+            ),
+            12.horizontalSpace,
+            Text(
+              'Voice Feature',
+              style: AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Disclaimer:',
+              style: AppTextStyle.size(14).bold.withColor(AppColorToken.white),
+            ),
+            8.verticalSpace,
+            Text(
+              'Voice features are optional and for convenience only. We do not encourage or endorse any use. Accuracy is not guaranteed. Use responsibly. We are not liable for any issues arising from its use.',
+              style: AppTextStyle.size(13).regular.withColor(
+                    AppColorToken.white..color.withAlpha(200),
+                  ),
+            ),
+            16.verticalSpace,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColorToken.golden.value.withAlpha(15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColorToken.golden.value.withAlpha(30),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: AppColorToken.golden.value,
+                    size: 16,
+                  ),
+                  8.horizontalSpace,
+                  Expanded(
+                    child: Text(
+                      'Use voice features thoughtfully and at your own discretion.',
+                      style: AppTextStyle.size(11).medium.withColor(
+                            AppColorToken.golden,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              backgroundColor: AppColorToken.golden.value.withAlpha(20),
+              foregroundColor: AppColorToken.golden.value,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                'Understood',
+                style: AppTextStyle.size(14)
+                    .medium
+                    .withColor(AppColorToken.golden),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Widget for displaying error messages
@@ -213,12 +347,12 @@ class NationwideStrikeCard extends ConsumerWidget {
     } else if (strikeState.selectedDate != null) {
       // User's temporarily selected date comes next
       displayDate = strikeState.selectedDate!;
-      cardTitle = 'Selected Strike Date';
+      cardTitle = 'Selected Voice Date';
       isUserSelectedDate = true;
     } else if (strikeState.mostPopularDate != null) {
       // Most popular date as fallback
       displayDate = strikeState.mostPopularDate!.date;
-      cardTitle = 'Most Popular Strike Date';
+      cardTitle = 'Most Popular Rest/Voice Date';
       isUserSelectedDate = false;
     } else {
       // Unlikely fallback case
@@ -498,7 +632,7 @@ class UserStrikeButtons extends ConsumerWidget {
               DeleteConfirmationDialog.show(
                 context,
                 'Cancel Voice',
-                'Are you sure you want to cancel your scheduled strike? This action cannot be undone.',
+                'Are you sure you want to cancel your scheduled voice? This action cannot be undone.',
                 onDelete: () {
                   ref.read(strikeNotifierProvider.notifier).cancelStrike();
                 },
@@ -747,13 +881,13 @@ class EmptyDatesWidget extends StatelessWidget {
             ),
             16.verticalSpace,
             Text(
-              'No strike dates scheduled yet',
+              'No voice dates scheduled yet',
               style:
                   AppTextStyle.size(16).medium.withColor(AppColorToken.white),
             ),
             8.verticalSpace,
             Text(
-              'Be the first to schedule a strike date!',
+              'Be the first to schedule a voice date!',
               style: AppTextStyle.size(14).regular.withColor(
                     AppColorToken.white..color.withAlpha(150),
                   ),
@@ -986,7 +1120,7 @@ class CalendarView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isRescheduling ? 'Reschedule Voice' : 'Schedule Voice',
+            isRescheduling ? 'Reschedule Rest/Voice' : 'Schedule Rest/Voice',
             style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
           ),
           24.verticalSpace,

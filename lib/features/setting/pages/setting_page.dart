@@ -9,6 +9,7 @@ import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -124,7 +125,7 @@ class SettingsPage extends ConsumerWidget {
             } else if (item.$2 == 'FAQ') {
               FaqRoute().push(context);
             } else if (item.$2 == 'Legal and Policies') {
-              LegalPoliciesRoute().push(context);
+              launchUrl(Uri.parse('https://gigways.com/privacy-policy.html'));
             } else if (item.$2 == 'Share with Other!') {
               Share.share('Check out GigWays App');
             }

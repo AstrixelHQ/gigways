@@ -203,13 +203,36 @@ class InsightSummaryNotifier extends _$InsightSummaryNotifier {
   /// Force app open validation (monthly)
   Future<void> performAppOpenValidation() async {
     final user = ref.read(authNotifierProvider).user;
-    if (user == null || !state.hasData) return;
+    if (user == null) {
+      await loadSummary(force: true);
+      return;
+    }
 
-    // Only validate if we haven't validated recently
-    final lastValidated = state.summary!.validation.lastValidated;
-    final daysSinceValidation = DateTime.now().difference(lastValidated).inDays;
+    // Always check if we need fresh data for today
+    final now = DateTime.now();
+    
+    if (!state.hasData) {
+      await loadSummary(force: true);
+      return;
+    }
 
-    if (daysSinceValidation >= 30) {
+    final summary = state.summary!;
+    final lastUpdated = summary.lastUpdated;
+    
+    // Force refresh if:
+    // 1. Last update was on a different day (to ensure today's data is current)
+    // 2. Using fallback data (version 0)
+    // 3. Monthly validation is needed
+    final isDifferentDay = lastUpdated.day != now.day || 
+                          lastUpdated.month != now.month || 
+                          lastUpdated.year != now.year;
+    
+    final isUsingFallback = summary.version == 0;
+    
+    final daysSinceValidation = now.difference(summary.validation.lastValidated).inDays;
+    final needsMonthlyValidation = daysSinceValidation >= 30;
+
+    if (isDifferentDay || isUsingFallback || needsMonthlyValidation) {
       await refreshSummary();
     }
   }

@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/core/extensions/sizing_extension.dart';
 import 'package:gigways/core/theme/themes.dart';
-import 'package:gigways/core/widgets/app_button.dart';
 import 'package:gigways/core/widgets/back_button.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/community/models/comment_model.dart';
 import 'package:gigways/features/community/models/post_model.dart';
 import 'package:gigways/features/community/widgets/comment_card.dart';
 import 'package:gigways/features/community/widgets/comment_input.dart';
-import 'package:intl/intl.dart';
 
 class CommentsPage extends ConsumerStatefulWidget {
   final PostModel post;

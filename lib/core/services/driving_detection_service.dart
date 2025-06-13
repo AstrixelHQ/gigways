@@ -1,11 +1,102 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:gigways/core/services/notification_service.dart';
+import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'driving_detection_service.g.dart';
+
+/// Represents a driving session with accumulated driving time and breaks
+class DrivingSession {
+  final DateTime sessionStartTime;
+  final Duration accumulatedDrivingTime;
+  final DateTime? currentDrivingStartTime;
+  final DateTime? lastStopTime;
+  final bool hasShownWarning;
+  final bool hasShownRestAlert;
+
+  DrivingSession({
+    required this.sessionStartTime,
+    required this.accumulatedDrivingTime,
+    this.currentDrivingStartTime,
+    this.lastStopTime,
+    this.hasShownWarning = false,
+    this.hasShownRestAlert = false,
+  });
+
+  /// Copy session with updated values
+  DrivingSession copyWith({
+    DateTime? sessionStartTime,
+    Duration? accumulatedDrivingTime,
+    DateTime? currentDrivingStartTime,
+    DateTime? lastStopTime,
+    bool? hasShownWarning,
+    bool? hasShownRestAlert,
+  }) {
+    return DrivingSession(
+      sessionStartTime: sessionStartTime ?? this.sessionStartTime,
+      accumulatedDrivingTime:
+          accumulatedDrivingTime ?? this.accumulatedDrivingTime,
+      currentDrivingStartTime: currentDrivingStartTime,
+      lastStopTime: lastStopTime,
+      hasShownWarning: hasShownWarning ?? this.hasShownWarning,
+      hasShownRestAlert: hasShownRestAlert ?? this.hasShownRestAlert,
+    );
+  }
+
+  /// Convert to JSON for persistence
+  Map<String, dynamic> toJson() {
+    return {
+      'sessionStartTime': sessionStartTime.millisecondsSinceEpoch,
+      'accumulatedDrivingTime': accumulatedDrivingTime.inMilliseconds,
+      'currentDrivingStartTime':
+          currentDrivingStartTime?.millisecondsSinceEpoch,
+      'lastStopTime': lastStopTime?.millisecondsSinceEpoch,
+      'hasShownWarning': hasShownWarning,
+      'hasShownRestAlert': hasShownRestAlert,
+    };
+  }
+
+  /// Create from JSON
+  factory DrivingSession.fromJson(Map<String, dynamic> json) {
+    return DrivingSession(
+      sessionStartTime:
+          DateTime.fromMillisecondsSinceEpoch(json['sessionStartTime']),
+      accumulatedDrivingTime:
+          Duration(milliseconds: json['accumulatedDrivingTime']),
+      currentDrivingStartTime: json['currentDrivingStartTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['currentDrivingStartTime'])
+          : null,
+      lastStopTime: json['lastStopTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['lastStopTime'])
+          : null,
+      hasShownWarning: json['hasShownWarning'] ?? false,
+      hasShownRestAlert: json['hasShownRestAlert'] ?? false,
+    );
+  }
+
+  /// Get total driving time including current session
+  Duration get totalDrivingTime {
+    Duration total = accumulatedDrivingTime;
+    if (currentDrivingStartTime != null) {
+      total += DateTime.now().difference(currentDrivingStartTime!);
+    }
+    return total;
+  }
+
+  /// Check if currently driving
+  bool get isCurrentlyDriving => currentDrivingStartTime != null;
+
+  @override
+  String toString() {
+    return 'DrivingSession(accumulated: ${accumulatedDrivingTime.inMinutes}min, '
+        'total: ${totalDrivingTime.inMinutes}min, currentlyDriving: $isCurrentlyDriving)';
+  }
+}
 
 class DrivingDetectionService {
   static final DrivingDetectionService _instance =
@@ -18,6 +109,9 @@ class DrivingDetectionService {
 
   // Notification service - get the singleton instance
   late NotificationService _notificationService;
+
+  // Ref for accessing providers
+  Ref? _ref;
 
   // Track last detected driving state to avoid duplicate notifications
   bool _lastDrivingState = false;
@@ -32,10 +126,31 @@ class DrivingDetectionService {
   // Threshold for continuous driving detection in seconds
   static const int _drivingDetectionThreshold = 25; // 25 seconds
 
+  // Time interval between notifications (2.5 hours)
+  static const Duration _notificationInterval = Duration(hours: 2, minutes: 30);
+
+  // Driving session tracking for rest notifications
+  static const Duration _restNotificationThreshold = Duration(hours: 2);
+  static const Duration _shortBreakThreshold = Duration(minutes: 10);
+  static const Duration _sessionResetThreshold = Duration(minutes: 15);
+  static const Duration _warningNotificationThreshold =
+      Duration(minutes: 90); // 1.5 hours
+
+  // SharedPreferences keys
+  static const String _lastNotificationTimeKey =
+      'last_driving_notification_time';
+  static const String _drivingSessionKey = 'current_driving_session';
+
+  // Current driving session tracking
+  DrivingSession? _currentSession;
+
   // Initialize the detection service
   Future<void> initialize() async {
     // Get notification service instance
     _notificationService = NotificationService();
+
+    // Load existing driving session if any
+    await _loadDrivingSession();
 
     // Start activity recognition
     final activityRecognition = ActivityRecognition();
@@ -62,6 +177,41 @@ class DrivingDetectionService {
       return;
     }
 
+    // Handle driving session tracking
+    _handleDrivingSessionChange(isDriving);
+
+    // Handle driving detection notifications (original logic)
+    _handleDrivingDetectionChange(isDriving);
+
+    _lastDrivingState = isDriving;
+  }
+
+  // Handle driving session tracking for rest notifications
+  void _handleDrivingSessionChange(bool isDriving) async {
+    if (!await _isWithinWorkingHours()) {
+      // Reset session if outside working hours
+      if (_currentSession != null) {
+        await _resetDrivingSession();
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+
+    if (isDriving && !_lastDrivingState) {
+      // Started driving
+      await _handleDrivingStarted(now);
+    } else if (!isDriving && _lastDrivingState) {
+      // Stopped driving
+      await _handleDrivingStopped(now);
+    } else if (isDriving && _currentSession != null) {
+      // Continue driving - check for rest notifications
+      await _checkForRestNotifications();
+    }
+  }
+
+  // Handle driving detection notifications (original logic)
+  void _handleDrivingDetectionChange(bool isDriving) {
     // If we're detecting a transition to driving
     if (isDriving && !_lastDrivingState) {
       // Start timing the driving detection if not already started
@@ -75,8 +225,6 @@ class DrivingDetectionService {
       _cancelDrivingDetectionTimer();
       _drivingStartTime = null;
     }
-
-    _lastDrivingState = isDriving;
   }
 
   // Start a timer to check if driving has been continuous for the threshold
@@ -101,9 +249,147 @@ class DrivingDetectionService {
     _drivingDetectionTimer = null;
   }
 
+  // Handle when driving starts
+  Future<void> _handleDrivingStarted(DateTime now) async {
+    if (_currentSession == null) {
+      // Start new session
+      _currentSession = DrivingSession(
+        sessionStartTime: now,
+        accumulatedDrivingTime: Duration.zero,
+        currentDrivingStartTime: now,
+      );
+      debugPrint(
+          'Started new driving session at ${_formatTime(now.hour, now.minute)}');
+    } else {
+      // Resume driving in existing session
+      Duration? breakDuration;
+      if (_currentSession!.lastStopTime != null) {
+        breakDuration = now.difference(_currentSession!.lastStopTime!);
+      }
+
+      if (breakDuration != null && breakDuration > _sessionResetThreshold) {
+        // Long break - reset session
+        _currentSession = DrivingSession(
+          sessionStartTime: now,
+          accumulatedDrivingTime: Duration.zero,
+          currentDrivingStartTime: now,
+        );
+        debugPrint(
+            'Long break detected (${breakDuration.inMinutes}min) - started new session');
+      } else {
+        // Short break - resume session
+        _currentSession = _currentSession!.copyWith(
+          currentDrivingStartTime: now,
+          lastStopTime: null,
+        );
+        debugPrint(
+            'Resumed driving after ${breakDuration?.inMinutes ?? 0}min break');
+      }
+    }
+
+    await _saveDrivingSession();
+  }
+
+  // Handle when driving stops
+  Future<void> _handleDrivingStopped(DateTime now) async {
+    if (_currentSession?.currentDrivingStartTime != null) {
+      // Calculate driving time for this segment
+      final segmentDuration =
+          now.difference(_currentSession!.currentDrivingStartTime!);
+
+      // Add to accumulated time
+      _currentSession = _currentSession!.copyWith(
+        accumulatedDrivingTime:
+            _currentSession!.accumulatedDrivingTime + segmentDuration,
+        currentDrivingStartTime: null,
+        lastStopTime: now,
+      );
+
+      debugPrint(
+          'Stopped driving after ${segmentDuration.inMinutes}min - total session: ${_currentSession!.accumulatedDrivingTime.inMinutes}min');
+      await _saveDrivingSession();
+    }
+  }
+
+  // Check if rest notifications should be sent
+  Future<void> _checkForRestNotifications() async {
+    if (_currentSession == null) return;
+
+    final totalDrivingTime = _currentSession!.totalDrivingTime;
+
+    // Check for 1.5 hour warning
+    if (totalDrivingTime >= _warningNotificationThreshold &&
+        !_currentSession!.hasShownWarning) {
+      await _showRestWarningNotification();
+      _currentSession = _currentSession!.copyWith(hasShownWarning: true);
+      await _saveDrivingSession();
+    }
+
+    // Check for 2 hour rest alert
+    if (totalDrivingTime >= _restNotificationThreshold &&
+        !_currentSession!.hasShownRestAlert) {
+      await _showRestAlertNotification();
+      _currentSession = _currentSession!.copyWith(hasShownRestAlert: true);
+      await _saveDrivingSession();
+    }
+  }
+
+  // Show warning notification at 1.5 hours
+  Future<void> _showRestWarningNotification() async {
+    _notificationService.show(
+      NotificationData(
+        title: 'Long Drive Alert',
+        body:
+            'You\'ve been driving for 1.5 hours. Consider taking a break soon.',
+        channel: NotificationChannel.driving,
+        id: 102,
+        payload: 'driving_warning',
+        autoCancel: true,
+        timeoutAfter: const Duration(minutes: 10),
+      ),
+    );
+    debugPrint('Showed 1.5 hour warning notification');
+  }
+
+  // Show rest alert notification at 2 hours
+  Future<void> _showRestAlertNotification() async {
+    _notificationService.show(
+      NotificationData(
+        title: 'Take a Rest Break',
+        body:
+            'You\'ve been driving for 2 hours. Please take a 15-minute break for safety.',
+        channel: NotificationChannel.driving,
+        id: 103,
+        payload: 'driving_rest_alert',
+        autoCancel: true,
+        timeoutAfter: const Duration(minutes: 15),
+      ),
+    );
+    debugPrint('Showed 2 hour rest alert notification');
+  }
+
   // Show notification for driving detection
-  void _notifyDrivingDetected() {
-    if (!_isDetectionEnabled) return;
+  Future<void> _notifyDrivingDetected() async {
+    if (!_isDetectionEnabled || _ref == null) return;
+
+    // Check if user is within scheduled work hours
+    final isWithinSchedule = await _isWithinWorkingHours();
+    if (!isWithinSchedule) {
+      debugPrint(
+          'Driving detected outside of scheduled work hours - notification suppressed');
+      return;
+    }
+
+    // Check if enough time has passed since last notification
+    final canNotify = await _canShowNotification();
+    if (!canNotify) {
+      debugPrint(
+          'Not enough time passed since last driving notification - notification suppressed');
+      return;
+    }
+
+    // Save the current time as last notification time
+    await _saveLastNotificationTime();
 
     _notificationService.show(
       NotificationData(
@@ -117,6 +403,131 @@ class DrivingDetectionService {
         timeoutAfter: const Duration(minutes: 5),
       ),
     );
+
+    debugPrint(
+        'Driving notification shown - within schedule and interval requirements met');
+  }
+
+  // Check if current time is within user's scheduled working hours
+  Future<bool> _isWithinWorkingHours() async {
+    try {
+      if (_ref == null) return false;
+
+      // Get current user data
+      final authState = _ref!.read(authNotifierProvider);
+      final userData = authState.userData;
+
+      if (userData?.schedule == null) {
+        debugPrint('No user schedule found - allowing notification');
+        return true; // If no schedule is set, allow notifications
+      }
+
+      final now = DateTime.now();
+      final currentDay = _getCurrentDayName(now.weekday);
+
+      // Get schedule for current day
+      final daySchedule = userData!.schedule!.weeklySchedule[currentDay];
+
+      if (daySchedule == null) {
+        debugPrint('No schedule for $currentDay - suppressing notification');
+        return false; // No work scheduled for today
+      }
+
+      // Get current time in minutes since midnight
+      final currentTimeInMinutes = now.hour * 60 + now.minute;
+
+      // Get schedule start and end times in minutes since midnight
+      final startTimeInMinutes = daySchedule.timeRange.start.hour * 60 +
+          daySchedule.timeRange.start.minute;
+      final endTimeInMinutes = daySchedule.timeRange.end.hour * 60 +
+          daySchedule.timeRange.end.minute;
+
+      // Handle overnight shifts (when end time is earlier than start time)
+      if (endTimeInMinutes < startTimeInMinutes) {
+        // For overnight shifts: current time should be after start time OR before end time
+        final isWithinSchedule = currentTimeInMinutes >= startTimeInMinutes ||
+            currentTimeInMinutes <= endTimeInMinutes;
+        debugPrint(
+            'Overnight shift - Current: ${_formatTime(now.hour, now.minute)}, Schedule: ${daySchedule.timeRange.format()}, Within: $isWithinSchedule');
+        return isWithinSchedule;
+      } else {
+        // For regular shifts: current time should be between start and end
+        final isWithinSchedule = currentTimeInMinutes >= startTimeInMinutes &&
+            currentTimeInMinutes <= endTimeInMinutes;
+        debugPrint(
+            'Regular shift - Current: ${_formatTime(now.hour, now.minute)}, Schedule: ${daySchedule.timeRange.format()}, Within: $isWithinSchedule');
+        return isWithinSchedule;
+      }
+    } catch (e) {
+      debugPrint('Error checking working hours: $e');
+      return true; // On error, allow notification to be safe
+    }
+  }
+
+  // Check if enough time has passed since last notification
+  Future<bool> _canShowNotification() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastNotificationTimeMs = prefs.getInt(_lastNotificationTimeKey);
+
+      if (lastNotificationTimeMs == null) {
+        return true; // First time, allow notification
+      }
+
+      final lastNotificationTime =
+          DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
+      final timeSinceLastNotification =
+          DateTime.now().difference(lastNotificationTime);
+
+      final canNotify = timeSinceLastNotification >= _notificationInterval;
+      debugPrint(
+          'Time since last notification: ${timeSinceLastNotification.inHours}h ${timeSinceLastNotification.inMinutes % 60}m - Can notify: $canNotify');
+
+      return canNotify;
+    } catch (e) {
+      debugPrint('Error checking notification interval: $e');
+      return true; // On error, allow notification
+    }
+  }
+
+  // Save the current time as last notification time
+  Future<void> _saveLastNotificationTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          _lastNotificationTimeKey, DateTime.now().millisecondsSinceEpoch);
+    } catch (e) {
+      debugPrint('Error saving last notification time: $e');
+    }
+  }
+
+  // Get current day name from weekday number
+  String _getCurrentDayName(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'Monday';
+      case 2:
+        return 'Tuesday';
+      case 3:
+        return 'Wednesday';
+      case 4:
+        return 'Thursday';
+      case 5:
+        return 'Friday';
+      case 6:
+        return 'Saturday';
+      case 7:
+        return 'Sunday';
+      default:
+        return 'Monday';
+    }
+  }
+
+  // Format time for debugging
+  String _formatTime(int hour, int minute) {
+    final h = hour % 12 == 0 ? 12 : hour % 12;
+    final period = hour < 12 ? 'AM' : 'PM';
+    return '$h:${minute.toString().padLeft(2, '0')} $period';
   }
 
   // Enable or disable automatic detection
@@ -128,10 +539,158 @@ class DrivingDetectionService {
       _cancelDrivingDetectionTimer();
       _drivingStartTime = null;
 
-      // Cancel the driving notification if it exists
-      _notificationService
-          .cancel(101); // Same ID as used for driving notification
+      // Cancel driving notifications if they exist
+      _notificationService.cancel(101); // Driving detection notification
+      _notificationService.cancel(102); // Warning notification
+      _notificationService.cancel(103); // Rest alert notification
+
+      // Reset driving session
+      _resetDrivingSession();
     }
+  }
+
+  // Manually reset driving session (useful for testing or user request)
+  Future<void> resetDrivingSession() async {
+    await _resetDrivingSession();
+    // Cancel any active rest notifications
+    _notificationService.cancel(102);
+    _notificationService.cancel(103);
+  }
+
+  // Reset the notification timer (useful for testing or user request)
+  Future<void> resetNotificationTimer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastNotificationTimeKey);
+      debugPrint(
+          'Notification timer reset - next driving detection will show immediately if within schedule');
+    } catch (e) {
+      debugPrint('Error resetting notification timer: $e');
+    }
+  }
+
+  // Get the time remaining until next notification is allowed
+  Future<Duration?> getTimeUntilNextNotification() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastNotificationTimeMs = prefs.getInt(_lastNotificationTimeKey);
+
+      if (lastNotificationTimeMs == null) {
+        return Duration.zero; // Can notify immediately
+      }
+
+      final lastNotificationTime =
+          DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
+      final timeSinceLastNotification =
+          DateTime.now().difference(lastNotificationTime);
+
+      if (timeSinceLastNotification >= _notificationInterval) {
+        return Duration.zero; // Can notify immediately
+      }
+
+      return _notificationInterval - timeSinceLastNotification;
+    } catch (e) {
+      debugPrint('Error getting time until next notification: $e');
+      return Duration.zero;
+    }
+  }
+
+  // Load driving session from persistence
+  Future<void> _loadDrivingSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionJson = prefs.getString(_drivingSessionKey);
+
+      if (sessionJson != null) {
+        final Map<String, dynamic> sessionData =
+            Map<String, dynamic>.from(await compute(_parseJson, sessionJson));
+        _currentSession = DrivingSession.fromJson(sessionData);
+
+        // Check if session is from today and within reasonable time
+        final now = DateTime.now();
+        final sessionAge = now.difference(_currentSession!.sessionStartTime);
+
+        if (sessionAge.inHours > 24 || !await _isWithinWorkingHours()) {
+          // Session is too old or outside work hours - reset
+          await _resetDrivingSession();
+        } else {
+          debugPrint('Loaded existing driving session: $_currentSession');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading driving session: $e');
+      _currentSession = null;
+    }
+  }
+
+  // Save driving session to persistence
+  Future<void> _saveDrivingSession() async {
+    try {
+      if (_currentSession == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final sessionJson = await compute(_encodeJson, _currentSession!.toJson());
+      await prefs.setString(_drivingSessionKey, sessionJson);
+    } catch (e) {
+      debugPrint('Error saving driving session: $e');
+    }
+  }
+
+  // Reset driving session
+  Future<void> _resetDrivingSession() async {
+    try {
+      _currentSession = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_drivingSessionKey);
+      debugPrint('Reset driving session');
+    } catch (e) {
+      debugPrint('Error resetting driving session: $e');
+    }
+  }
+
+  // Helper functions for compute isolates
+  static Map<String, dynamic> _parseJson(String jsonString) {
+    return Map<String, dynamic>.from(jsonDecode(jsonString));
+  }
+
+  static String _encodeJson(Map<String, dynamic> data) {
+    return jsonEncode(data);
+  }
+
+  // Get current driving session info (for debugging)
+  Map<String, dynamic> getDrivingSessionInfo() {
+    if (_currentSession == null) {
+      return {'hasSession': false};
+    }
+
+    return {
+      'hasSession': true,
+      'sessionStartTime': _currentSession!.sessionStartTime.toString(),
+      'accumulatedDrivingTime':
+          _currentSession!.accumulatedDrivingTime.inMinutes,
+      'totalDrivingTime': _currentSession!.totalDrivingTime.inMinutes,
+      'isCurrentlyDriving': _currentSession!.isCurrentlyDriving,
+      'hasShownWarning': _currentSession!.hasShownWarning,
+      'hasShownRestAlert': _currentSession!.hasShownRestAlert,
+      'lastStopTime': _currentSession!.lastStopTime?.toString(),
+    };
+  }
+
+  // Check current notification eligibility status (for debugging)
+  Future<Map<String, dynamic>> getNotificationStatus() async {
+    final isWithinSchedule = await _isWithinWorkingHours();
+    final canNotify = await _canShowNotification();
+    final timeUntilNext = await getTimeUntilNextNotification();
+
+    return {
+      'detectionEnabled': _isDetectionEnabled,
+      'withinSchedule': isWithinSchedule,
+      'canNotifyByTime': canNotify,
+      'timeUntilNextNotification': timeUntilNext,
+      'canShowNotification':
+          isWithinSchedule && canNotify && _isDetectionEnabled,
+      'drivingSession': getDrivingSessionInfo(),
+    };
   }
 
   // Dispose of resources
@@ -145,7 +704,7 @@ class DrivingDetectionService {
 DrivingDetectionService drivingDetectionService(Ref ref) {
   final service = DrivingDetectionService();
 
-  // Initialize the service
+  // Initialize the service with ref for accessing user data
   service.initialize();
 
   // Clean up on provider disposal

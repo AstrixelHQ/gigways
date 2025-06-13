@@ -40,6 +40,16 @@ class TrackerController extends _$TrackerController {
     // Re-enable driving detection
     ref.read(drivingDetectionServiceProvider).setDetectionEnabled(true);
   }
+  
+  // Force end shift immediately (when user skips or turns off)
+  Future<void> forceEndShift() async {
+    print('TrackerController.forceEndShift called');
+    await ref.read(trackingNotifierProvider.notifier).forceEndShift();
+    print('forceEndShift completed, re-enabling driving detection');
+
+    // Re-enable driving detection
+    ref.read(drivingDetectionServiceProvider).setDetectionEnabled(true);
+  }
 
   // Handle notification actions
   void handleNotificationAction(String? payload, String actionId) async {

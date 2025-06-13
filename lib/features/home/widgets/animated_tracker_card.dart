@@ -55,6 +55,7 @@ class TrackerCard extends ConsumerStatefulWidget {
   final int totalDrivers;
   final Function(bool) onTrackerToggled;
   final Function(double earnings, double expenses) onShiftEnded;
+  final VoidCallback? onForceEndShift;
 
   const TrackerCard({
     Key? key,
@@ -64,6 +65,7 @@ class TrackerCard extends ConsumerStatefulWidget {
     required this.totalDrivers,
     required this.onTrackerToggled,
     required this.onShiftEnded,
+    this.onForceEndShift,
   }) : super(key: key);
 
   @override
@@ -119,6 +121,18 @@ class _TrackerCardState extends ConsumerState<TrackerCard>
       setState(() {
         _currentState = TrackerState.active;
       });
+    }
+    
+    // Update current state based on tracker status
+    if (widget.isTrackerEnabled && _currentState == TrackerState.inactive) {
+      setState(() {
+        _currentState = TrackerState.active;
+      });
+    } else if (!widget.isTrackerEnabled && _currentState == TrackerState.active) {
+      // Only show earnings form if we're not already in endingShift state
+      if (_currentState != TrackerState.endingShift) {
+        _showEarningsForm();
+      }
     }
   }
 
@@ -274,7 +288,7 @@ class _TrackerCardState extends ConsumerState<TrackerCard>
                     ),
                     16.verticalSpace,
                     Text(
-                      "Initializing tracker...",
+                      "Processing...",
                       style: AppTextStyle.size(16)
                           .medium
                           .withColor(AppColorToken.white),
@@ -582,7 +596,19 @@ class _TrackerCardState extends ConsumerState<TrackerCard>
                         Expanded(
                           child: AppButton(
                             text: 'Skip',
-                            onPressed: _hideEarningsForm,
+                            onPressed: () async {
+                              print('Skip button pressed');
+                              // Force end shift when skipping
+                              if (widget.onForceEndShift != null) {
+                                print('Calling onForceEndShift');
+                                widget.onForceEndShift!();
+                              } else {
+                                print('Fallback to onShiftEnded with 0.0 values');
+                                widget.onShiftEnded(0.0, 0.0);
+                              }
+                              // Hide the form after the shift is ended
+                              _hideEarningsForm();
+                            },
                             backgroundColor: Colors.grey[800],
                             textColor: AppColorToken.white.value,
                           ),

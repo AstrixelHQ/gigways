@@ -2,7 +2,7 @@ name: gigways
 description: "A new Flutter project."
 publish_to: "none"
 
-version: 1.0.0+3
+version: 1.0.0+5
 
 environment:
   sdk: ^3.6.1
@@ -49,6 +49,8 @@ dependencies:
   flutter_timezone: ^4.1.0
   pdf: ^3.11.3
   open_file: ^3.5.10
+  cloud_functions: ^5.5.1
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

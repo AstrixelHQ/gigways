@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"gigwayhero","appId":"1:594284866867:android:938f97dbd6599a79f02246","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"gigwayhero","appId":"1:594284866867:ios:6c90931adb5b722cf02246","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"gigwayhero","configurations":{"android":"1:594284866867:android:938f97dbd6599a79f02246","ios":"1:594284866867:ios:6c90931adb5b722cf02246"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gigwayhero",
+          "appId": "1:594284866867:android:938f97dbd6599a79f02246",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "gigwayhero",
+          "appId": "1:594284866867:ios:6c90931adb5b722cf02246",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gigwayhero",
+          "configurations": {
+            "android": "1:594284866867:android:938f97dbd6599a79f02246",
+            "ios": "1:594284866867:ios:6c90931adb5b722cf02246"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}

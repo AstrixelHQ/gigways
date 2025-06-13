@@ -97,16 +97,21 @@ class TrackingRepository {
     double? expenses,
     bool skipEarningsEntry = false,
   }) async {
+    print('TrackingRepository: Ending session $sessionId for user $userId');
+    print('TrackingRepository: skipEarningsEntry = $skipEarningsEntry');
+    
     // Get the current session
     final docRef = _userSessionsCollection(userId).doc(sessionId);
     final doc = await docRef.get();
 
     if (!doc.exists) {
+      print('TrackingRepository: Session $sessionId not found in Firestore');
       throw Exception('Tracking session not found');
     }
 
     // Get current session data
     final session = TrackingSession.fromMap(doc.data()!);
+    print('TrackingRepository: Current session data - miles: ${session.miles}, duration: ${session.durationInSeconds}s, isActive: ${session.isActive}');
 
     // Create updated session with end time
     final updatedSession = session.copyWith(
@@ -116,29 +121,47 @@ class TrackingRepository {
       expenses: expenses,
     );
 
-    // Update Firestore
-    await docRef.update({
+    // Prepare update data
+    final updateData = {
       'endTime': Timestamp.fromDate(endTime),
       'isActive': false,
-      if (earnings != null) 'earnings': earnings,
-      if (expenses != null) 'expenses': expenses,
-    });
+    };
+    
+    // Only add earnings/expenses if provided (not when skipping)
+    if (!skipEarningsEntry) {
+      if (earnings != null) updateData['earnings'] = earnings;
+      if (expenses != null) updateData['expenses'] = expenses;
+    }
+    
+    print('TrackingRepository: Updating Firestore with data: $updateData');
+
+    // Update Firestore
+    await docRef.update(updateData);
+    
+    print('TrackingRepository: Session $sessionId successfully ended');
 
     return updatedSession;
   }
 
   // Get currently active session
   Future<TrackingSession?> getActiveSession(String userId) async {
+    print('TrackingRepository: Checking for active sessions for user $userId');
     final querySnapshot = await _userSessionsCollection(userId)
         .where('isActive', isEqualTo: true)
         .limit(1)
         .get();
 
+    print('TrackingRepository: Found ${querySnapshot.docs.length} active sessions');
+    
     if (querySnapshot.docs.isEmpty) {
+      print('TrackingRepository: No active sessions found');
       return null;
     }
 
-    return TrackingSession.fromMap(querySnapshot.docs.first.data());
+    final sessionData = querySnapshot.docs.first.data();
+    print('TrackingRepository: Found active session with ID: ${sessionData['id']}, isActive: ${sessionData['isActive']}');
+    
+    return TrackingSession.fromMap(sessionData);
   }
 
   // Get sessions for a specific time range
@@ -245,9 +268,12 @@ class TrackingRepository {
     double? earnings,
     double? expenses,
   }) async {
+    print('TrackingRepository: Ending all active sessions for user $userId');
     final activeSessions = await getAllActiveSessions(userId);
 
+    print('TrackingRepository: Found ${activeSessions.length} active sessions to end');
     if (activeSessions.isEmpty) {
+      print('TrackingRepository: No active sessions to end');
       return;
     }
 
@@ -264,6 +290,8 @@ class TrackingRepository {
     for (final session in activeSessions) {
       final sessionId = session.id;
       final docRef = _userSessionsCollection(userId).doc(sessionId);
+      
+      print('TrackingRepository: Ending session $sessionId');
 
       double? sessionEarnings;
       double? sessionExpenses;
@@ -280,13 +308,19 @@ class TrackingRepository {
       }
 
       // Update Firestore
-      await docRef.update({
+      final updateData = {
         'endTime': Timestamp.fromDate(now),
         'isActive': false,
-        if (sessionEarnings != null) 'earnings': sessionEarnings,
-        if (sessionExpenses != null) 'expenses': sessionExpenses,
-      });
+      };
+      
+      if (sessionEarnings != null) updateData['earnings'] = sessionEarnings;
+      if (sessionExpenses != null) updateData['expenses'] = sessionExpenses;
+      
+      print('TrackingRepository: Updating session $sessionId with: $updateData');
+      await docRef.update(updateData);
     }
+    
+    print('TrackingRepository: All active sessions ended successfully');
   }
 }
 

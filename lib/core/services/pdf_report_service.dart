@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,11 +28,8 @@ class PdfReportService {
 
   // App colors in PDF format
   static final _primaryColor = PdfColor.fromHex('#C7B299'); // Golden
-  static final _primaryColorLight = PdfColor.fromHex('#E6D7C3'); // Light Golden
-  static final _primaryColorVeryLight =
-      PdfColor.fromHex('#F5F1ED'); // Very Light Golden
+  static final _primaryColorVeryLight = PdfColor.fromHex('#F5F1ED');
   static final _darkColor = PdfColor.fromHex('#000000'); // Black
-  static final _whiteColor = PdfColor.fromHex('#FFFFFF'); // White
   static final _greyColor = PdfColor.fromHex('#666666'); // Grey
   static final _lightGreyColor = PdfColor.fromHex('#E0E0E0'); // Light Grey
   static final _veryLightGreyColor =

@@ -11,27 +11,33 @@ part 'notification_service.g.dart';
 enum NotificationChannel {
   driving(
     id: 'driving_status',
-    name: 'Driving Status',
-    description: 'Notifications for driving status updates',
+    name: 'Driving & Work Status',
+    description: 'Smart notifications for driving detection and work session tracking',
     importance: Importance.high,
   ),
   breaks(
     id: 'break_time',
-    name: 'Break Time',
-    description: 'Notifications for break time reminders',
+    name: 'Break & Rest Reminders',
+    description: 'Intelligent break suggestions and safety reminders',
     importance: Importance.high,
   ),
   schedule(
     id: 'schedule',
-    name: 'Schedule Updates',
-    description: 'Notifications for schedule changes',
-    importance: Importance.min,
+    name: 'Schedule & Shift Updates',
+    description: 'Work schedule notifications and shift reminders',
+    importance: Importance.defaultImportance,
   ),
   system(
     id: 'system',
-    name: 'System',
-    description: 'System notifications and updates',
+    name: 'System & Earnings',
+    description: 'System updates, earnings notifications, and app insights',
     importance: Importance.low,
+  ),
+  safety(
+    id: 'safety_alerts',
+    name: 'Safety Alerts',
+    description: 'Important safety notifications for long driving sessions',
+    importance: Importance.max,
   );
 
   final String id;

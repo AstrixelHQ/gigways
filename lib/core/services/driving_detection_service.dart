@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:gigways/core/services/notification_service.dart';
-import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -124,10 +123,15 @@ class DrivingDetectionService {
   Timer? _drivingDetectionTimer;
 
   // Threshold for continuous driving detection in seconds
-  static const int _drivingDetectionThreshold = 25; // 25 seconds
+  static const int _drivingDetectionThreshold =
+      10; // 10 seconds - faster detection
 
-  // Time interval between notifications (2.5 hours)
-  static const Duration _notificationInterval = Duration(hours: 2, minutes: 30);
+  // Time interval between notifications (30 minutes after first notification)
+  static const Duration _notificationInterval = Duration(minutes: 30);
+
+  // Track if this is the first notification of the day
+  bool _isFirstNotificationOfDay = true;
+  DateTime? _lastNotificationDate;
 
   // Driving session tracking for rest notifications
   static const Duration _restNotificationThreshold = Duration(hours: 2);
@@ -409,79 +413,41 @@ class DrivingDetectionService {
   }
 
   // Check if current time is within user's scheduled working hours
+  // NOTE: Schedule barriers removed as per requirements
   Future<bool> _isWithinWorkingHours() async {
-    try {
-      if (_ref == null) return false;
-
-      // Get current user data
-      final authState = _ref!.read(authNotifierProvider);
-      final userData = authState.userData;
-
-      if (userData?.schedule == null) {
-        debugPrint('No user schedule found - allowing notification');
-        return true; // If no schedule is set, allow notifications
-      }
-
-      final now = DateTime.now();
-      final currentDay = _getCurrentDayName(now.weekday);
-
-      // Get schedule for current day
-      final daySchedule = userData!.schedule!.weeklySchedule[currentDay];
-
-      if (daySchedule == null) {
-        debugPrint('No schedule for $currentDay - suppressing notification');
-        return false; // No work scheduled for today
-      }
-
-      // Get current time in minutes since midnight
-      final currentTimeInMinutes = now.hour * 60 + now.minute;
-
-      // Get schedule start and end times in minutes since midnight
-      final startTimeInMinutes = daySchedule.timeRange.start.hour * 60 +
-          daySchedule.timeRange.start.minute;
-      final endTimeInMinutes = daySchedule.timeRange.end.hour * 60 +
-          daySchedule.timeRange.end.minute;
-
-      // Handle overnight shifts (when end time is earlier than start time)
-      if (endTimeInMinutes < startTimeInMinutes) {
-        // For overnight shifts: current time should be after start time OR before end time
-        final isWithinSchedule = currentTimeInMinutes >= startTimeInMinutes ||
-            currentTimeInMinutes <= endTimeInMinutes;
-        debugPrint(
-            'Overnight shift - Current: ${_formatTime(now.hour, now.minute)}, Schedule: ${daySchedule.timeRange.format()}, Within: $isWithinSchedule');
-        return isWithinSchedule;
-      } else {
-        // For regular shifts: current time should be between start and end
-        final isWithinSchedule = currentTimeInMinutes >= startTimeInMinutes &&
-            currentTimeInMinutes <= endTimeInMinutes;
-        debugPrint(
-            'Regular shift - Current: ${_formatTime(now.hour, now.minute)}, Schedule: ${daySchedule.timeRange.format()}, Within: $isWithinSchedule');
-        return isWithinSchedule;
-      }
-    } catch (e) {
-      debugPrint('Error checking working hours: $e');
-      return true; // On error, allow notification to be safe
-    }
+    // Always return true - notifications allowed at any time
+    return true;
   }
 
   // Check if enough time has passed since last notification
+  // New logic: First notification immediately, then 30min intervals
   Future<bool> _canShowNotification() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastNotificationTimeMs = prefs.getInt(_lastNotificationTimeKey);
+      final now = DateTime.now();
 
-      if (lastNotificationTimeMs == null) {
-        return true; // First time, allow notification
+      // Check if this is a new day
+      if (_lastNotificationDate == null ||
+          _lastNotificationDate!.day != now.day ||
+          _lastNotificationDate!.month != now.month ||
+          _lastNotificationDate!.year != now.year) {
+        _isFirstNotificationOfDay = true;
+        _lastNotificationDate = now;
+      }
+
+      if (lastNotificationTimeMs == null || _isFirstNotificationOfDay) {
+        debugPrint('First notification of day - allowing immediately');
+        return true; // First notification of day, allow immediately
       }
 
       final lastNotificationTime =
           DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
-      final timeSinceLastNotification =
-          DateTime.now().difference(lastNotificationTime);
+      final timeSinceLastNotification = now.difference(lastNotificationTime);
 
       final canNotify = timeSinceLastNotification >= _notificationInterval;
       debugPrint(
-          'Time since last notification: ${timeSinceLastNotification.inHours}h ${timeSinceLastNotification.inMinutes % 60}m - Can notify: $canNotify');
+          'Time since last notification: ${timeSinceLastNotification.inMinutes}min - Can notify: $canNotify (30min interval)');
 
       return canNotify;
     } catch (e) {
@@ -494,8 +460,12 @@ class DrivingDetectionService {
   Future<void> _saveLastNotificationTime() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(
-          _lastNotificationTimeKey, DateTime.now().millisecondsSinceEpoch);
+      final now = DateTime.now();
+      await prefs.setInt(_lastNotificationTimeKey, now.millisecondsSinceEpoch);
+
+      // Mark that we've shown the first notification of the day
+      _isFirstNotificationOfDay = false;
+      _lastNotificationDate = now;
     } catch (e) {
       debugPrint('Error saving last notification time: $e');
     }
@@ -574,15 +544,23 @@ class DrivingDetectionService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastNotificationTimeMs = prefs.getInt(_lastNotificationTimeKey);
+      final now = DateTime.now();
 
-      if (lastNotificationTimeMs == null) {
+      // Check if this is a new day
+      if (_lastNotificationDate == null ||
+          _lastNotificationDate!.day != now.day ||
+          _lastNotificationDate!.month != now.month ||
+          _lastNotificationDate!.year != now.year) {
+        return Duration.zero; // Can notify immediately on new day
+      }
+
+      if (lastNotificationTimeMs == null || _isFirstNotificationOfDay) {
         return Duration.zero; // Can notify immediately
       }
 
       final lastNotificationTime =
           DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
-      final timeSinceLastNotification =
-          DateTime.now().difference(lastNotificationTime);
+      final timeSinceLastNotification = now.difference(lastNotificationTime);
 
       if (timeSinceLastNotification >= _notificationInterval) {
         return Duration.zero; // Can notify immediately
@@ -690,7 +668,61 @@ class DrivingDetectionService {
       'canShowNotification':
           isWithinSchedule && canNotify && _isDetectionEnabled,
       'drivingSession': getDrivingSessionInfo(),
+      'isFirstNotificationOfDay': _isFirstNotificationOfDay,
     };
+  }
+
+  // TEST METHODS - For testing notifications without actual driving
+
+  /// Simulate driving detection for testing purposes
+  /// This will trigger the notification flow without requiring actual IN_VEHICLE activity
+  Future<void> simulateDrivingDetected() async {
+    debugPrint('🧪 TESTING: Simulating driving detection...');
+
+    // Skip the detection timer and directly trigger notification
+    await _notifyDrivingDetected();
+  }
+
+  /// Force trigger notification even if conditions aren't met (for testing)
+  Future<void> forceNotification(
+      {String? customTitle, String? customBody}) async {
+    debugPrint('🧪 TESTING: Force triggering notification...');
+
+    _notificationService.show(
+      NotificationData(
+        title: customTitle ?? 'TEST: Driving Detected',
+        body: customBody ??
+            'This is a test notification to verify the notification system is working.',
+        channel: NotificationChannel.driving,
+        id: 199, // Different ID for test notifications
+        payload: 'test_driving_detected',
+        autoCancel: true,
+        timeoutAfter: const Duration(minutes: 5),
+      ),
+    );
+  }
+
+  /// Simulate different activity types for testing
+  void simulateActivityChange(ActivityType activityType) {
+    debugPrint('🧪 TESTING: Simulating activity change to $activityType');
+
+    final fakeEvent = ActivityEvent(activityType, 100);
+
+    _handleActivityChange(fakeEvent);
+  }
+
+  /// Reset all testing states
+  Future<void> resetTestingState() async {
+    debugPrint('🧪 TESTING: Resetting all testing states...');
+
+    await resetNotificationTimer();
+    await resetDrivingSession();
+
+    _isFirstNotificationOfDay = true;
+    _lastNotificationDate = null;
+
+    // Cancel any test notifications
+    _notificationService.cancel(199);
   }
 
   // Dispose of resources
@@ -701,8 +733,12 @@ class DrivingDetectionService {
 }
 
 @Riverpod(keepAlive: true)
-DrivingDetectionService drivingDetectionService(Ref ref) {
+DrivingDetectionService drivingDetectionService(
+    DrivingDetectionServiceRef ref) {
   final service = DrivingDetectionService();
+
+  // Set the ref for accessing user data
+  service._ref = ref;
 
   // Initialize the service with ref for accessing user data
   service.initialize();

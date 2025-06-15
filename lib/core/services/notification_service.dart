@@ -2,8 +2,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigways/main.dart';
-import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'notification_service.g.dart';
@@ -73,7 +73,7 @@ class NotificationData {
 }
 
 @riverpod
-NotificationService notificationService(NotificationServiceRef ref) {
+NotificationService notificationService(Ref ref) {
   return NotificationService();
 }
 

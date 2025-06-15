@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'activity_recognition_service.g.dart';
 
 @riverpod
-ActivityRecognitionService activityRecognitionService(
-    ActivityRecognitionServiceRef ref) {
+ActivityRecognitionService activityRecognitionService(Ref ref) {
   return ActivityRecognitionService();
 }
 

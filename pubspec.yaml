@@ -76,6 +76,7 @@ flutter:
     - assets/lottie/
     - assets/image/
     - assets/fonts/
+    - shorebird.yaml
 
 flutter_gen:
   output: lib/core/assets/

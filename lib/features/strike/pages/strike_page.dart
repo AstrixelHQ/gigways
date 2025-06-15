@@ -342,7 +342,7 @@ class NationwideStrikeCard extends ConsumerWidget {
     if (strikeState.userStrike != null) {
       // User's scheduled strike has highest priority
       displayDate = strikeState.userStrike!.date;
-      cardTitle = 'Your Scheduled Voice';
+      cardTitle = 'Your Scheduled Rest';
       isUserSelectedDate = true;
     } else if (strikeState.selectedDate != null) {
       // User's temporarily selected date comes next
@@ -352,7 +352,7 @@ class NationwideStrikeCard extends ConsumerWidget {
     } else if (strikeState.mostPopularDate != null) {
       // Most popular date as fallback
       displayDate = strikeState.mostPopularDate!.date;
-      cardTitle = 'Most Popular Rest/Voice Date';
+      cardTitle = 'Most Popular Rest Date';
       isUserSelectedDate = false;
     } else {
       // Unlikely fallback case
@@ -663,7 +663,7 @@ class JoinStrikeButton extends ConsumerWidget {
         animation: animationController,
         builder: (context, child) {
           return AppButton(
-            text: 'Join This Voice',
+            text: 'Join Rest',
             onPressed: () {
               ref
                   .read(strikeNotifierProvider.notifier)
@@ -734,7 +734,7 @@ class ScheduleStrikeCard extends ConsumerWidget {
               ),
               12.horizontalSpace,
               Text(
-                'Schedule Voice',
+                'Schedule Rest',
                 style:
                     AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
               ),
@@ -748,7 +748,7 @@ class ScheduleStrikeCard extends ConsumerWidget {
 
           // Popular Dates Section
           Text(
-            'Popular Voice Dates',
+            'Popular Rest Dates',
             style:
                 AppTextStyle.size(16).semiBold.withColor(AppColorToken.golden),
           ),
@@ -820,7 +820,7 @@ class StatisticsCard extends StatelessWidget {
               10.horizontalSpace,
               Expanded(
                 child: Text(
-                  'Voice to unite, demand higher wages, and improve conditions!',
+                  'Empowering drivers to connect, unite, and drive positive change.',
                   style: AppTextStyle.size(14)
                       .medium
                       .withColor(AppColorToken.white),
@@ -1120,7 +1120,7 @@ class CalendarView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isRescheduling ? 'Reschedule Rest/Voice' : 'Schedule Rest/Voice',
+            isRescheduling ? 'Reschedule Rest' : 'Schedule Rest',
             style: AppTextStyle.size(20).bold.withColor(AppColorToken.golden),
           ),
           24.verticalSpace,

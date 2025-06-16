@@ -8,6 +8,7 @@ import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
+import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -108,6 +109,8 @@ class SettingsPage extends ConsumerWidget {
       (Icons.info_outline, 'FAQ'),
       (Icons.lock_outline, 'Legal and Policies'),
       (Icons.share_outlined, 'Share with Other!'),
+      // Only show debug logs in debug mode or for developers
+      if (kDebugMode) (Icons.bug_report_outlined, 'Debug Logs'),
     ];
 
     return items.map((item) {
@@ -128,6 +131,8 @@ class SettingsPage extends ConsumerWidget {
               launchUrl(Uri.parse('https://gigways.com/privacy-policy.html'));
             } else if (item.$2 == 'Share with Other!') {
               Share.share('Check out GigWays App');
+            } else if (item.$2 == 'Debug Logs') {
+              DebugLogsRoute().push(context);
             }
           },
           child: Row(

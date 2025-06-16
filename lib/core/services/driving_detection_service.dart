@@ -1,101 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:gigways/core/services/notification_service.dart';
+import 'package:gigways/core/services/debug_log_service.dart';
+import 'package:gigways/features/tracking/notifiers/tracking_notifier.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'driving_detection_service.g.dart';
 
-/// Represents a driving session with accumulated driving time and breaks
-class DrivingSession {
-  final DateTime sessionStartTime;
-  final Duration accumulatedDrivingTime;
-  final DateTime? currentDrivingStartTime;
-  final DateTime? lastStopTime;
-  final bool hasShownWarning;
-  final bool hasShownRestAlert;
-
-  DrivingSession({
-    required this.sessionStartTime,
-    required this.accumulatedDrivingTime,
-    this.currentDrivingStartTime,
-    this.lastStopTime,
-    this.hasShownWarning = false,
-    this.hasShownRestAlert = false,
-  });
-
-  /// Copy session with updated values
-  DrivingSession copyWith({
-    DateTime? sessionStartTime,
-    Duration? accumulatedDrivingTime,
-    DateTime? currentDrivingStartTime,
-    DateTime? lastStopTime,
-    bool? hasShownWarning,
-    bool? hasShownRestAlert,
-  }) {
-    return DrivingSession(
-      sessionStartTime: sessionStartTime ?? this.sessionStartTime,
-      accumulatedDrivingTime:
-          accumulatedDrivingTime ?? this.accumulatedDrivingTime,
-      currentDrivingStartTime: currentDrivingStartTime,
-      lastStopTime: lastStopTime,
-      hasShownWarning: hasShownWarning ?? this.hasShownWarning,
-      hasShownRestAlert: hasShownRestAlert ?? this.hasShownRestAlert,
-    );
-  }
-
-  /// Convert to JSON for persistence
-  Map<String, dynamic> toJson() {
-    return {
-      'sessionStartTime': sessionStartTime.millisecondsSinceEpoch,
-      'accumulatedDrivingTime': accumulatedDrivingTime.inMilliseconds,
-      'currentDrivingStartTime':
-          currentDrivingStartTime?.millisecondsSinceEpoch,
-      'lastStopTime': lastStopTime?.millisecondsSinceEpoch,
-      'hasShownWarning': hasShownWarning,
-      'hasShownRestAlert': hasShownRestAlert,
-    };
-  }
-
-  /// Create from JSON
-  factory DrivingSession.fromJson(Map<String, dynamic> json) {
-    return DrivingSession(
-      sessionStartTime:
-          DateTime.fromMillisecondsSinceEpoch(json['sessionStartTime']),
-      accumulatedDrivingTime:
-          Duration(milliseconds: json['accumulatedDrivingTime']),
-      currentDrivingStartTime: json['currentDrivingStartTime'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['currentDrivingStartTime'])
-          : null,
-      lastStopTime: json['lastStopTime'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['lastStopTime'])
-          : null,
-      hasShownWarning: json['hasShownWarning'] ?? false,
-      hasShownRestAlert: json['hasShownRestAlert'] ?? false,
-    );
-  }
-
-  /// Get total driving time including current session
-  Duration get totalDrivingTime {
-    Duration total = accumulatedDrivingTime;
-    if (currentDrivingStartTime != null) {
-      total += DateTime.now().difference(currentDrivingStartTime!);
-    }
-    return total;
-  }
-
-  /// Check if currently driving
-  bool get isCurrentlyDriving => currentDrivingStartTime != null;
-
-  @override
-  String toString() {
-    return 'DrivingSession(accumulated: ${accumulatedDrivingTime.inMinutes}min, '
-        'total: ${totalDrivingTime.inMinutes}min, currentlyDriving: $isCurrentlyDriving)';
-  }
-}
+// Removed DrivingSession class - now using UI tracker integration
 
 class DrivingDetectionService {
   static final DrivingDetectionService _instance =
@@ -130,46 +45,78 @@ class DrivingDetectionService {
   static const Duration _firstNotificationInterval = Duration(minutes: 30);
   static const Duration _subsequentNotificationInterval = Duration(hours: 1);
   static const Duration _maxNotificationInterval = Duration(hours: 2);
-  
+
   // Track notification history
   int _notificationCount = 0;
   bool _isFirstNotificationOfDay = true;
   DateTime? _lastNotificationDate;
   DateTime? _lastNotificationTime;
-  
+
   // Enhanced notification types
   static const int _drivingDetectedId = 101;
-  static const int _longDriveWarningId = 102;
-  static const int _restBreakAlertId = 103;
-  static const int _workStartReminderID = 104;
-  static const int _workEndReminderID = 105;
-  static const int _breakSuggestionId = 106;
-  static const int _earningsUpdateId = 107;
+  static const int _longDriveWarningId =
+      105; // Changed from 102 to avoid conflict
+  static const int _restBreakAlertId =
+      106; // Changed from 103 to avoid conflict
+  static const int _workStartReminderID =
+      107; // Changed from 104 to avoid conflict
+  static const int _workEndReminderID = 108;
+  static const int _breakSuggestionId = 109;
+  static const int _earningsUpdateId = 110;
 
-  // Driving session tracking for rest notifications
+  // Timer for checking tracking-based notifications
+  Timer? _trackingCheckTimer;
+
+  // Tracker-based rest notifications
   static const Duration _restNotificationThreshold = Duration(hours: 2);
-  static const Duration _shortBreakThreshold = Duration(minutes: 10);
-  static const Duration _sessionResetThreshold = Duration(minutes: 15);
   static const Duration _warningNotificationThreshold =
       Duration(minutes: 90); // 1.5 hours
+  static const Duration _repeatNotificationInterval =
+      Duration(hours: 2); // Repeat every 2 hours
+
+  // Track when notifications were last sent
+  DateTime? _lastWarningTime;
+  DateTime? _lastRestAlertTime;
+  DateTime? _lastDrivingNotificationTime;
+  int _restAlertCount = 0; // Track how many 2-hour alerts sent
 
   // SharedPreferences keys
   static const String _lastNotificationTimeKey =
       'last_driving_notification_time';
   static const String _notificationCountKey = 'notification_count_today';
-  static const String _drivingSessionKey = 'current_driving_session';
   static const String _lastNotificationDateKey = 'last_notification_date';
+  static const String _lastWarningTimeKey = 'last_warning_time';
+  static const String _lastRestAlertTimeKey = 'last_rest_alert_time';
+  static const String _restAlertCountKey = 'rest_alert_count';
 
-  // Current driving session tracking
-  DrivingSession? _currentSession;
+  // Reference to tracking notifier for UI timer integration
+  TrackingNotifier? _trackingNotifier;
+
+  // Debug logging service
+  late DebugLogService _debugLogger;
 
   // Initialize the detection service
   Future<void> initialize() async {
     // Get notification service instance
     _notificationService = NotificationService();
 
-    // Load existing driving session if any
-    await _loadDrivingSession();
+    // Get debug logger instance
+    _debugLogger = DebugLogService();
+
+    await _debugLogger.info(
+      'Initializing driving detection service',
+      category: LogCategory.notification,
+      metadata: {
+        'detectionEnabled': _isDetectionEnabled,
+        'firstNotificationInterval': _firstNotificationInterval.inMinutes,
+        'maxNotificationInterval': _maxNotificationInterval.inMinutes,
+        'restThreshold': _restNotificationThreshold.inMinutes,
+        'warningThreshold': _warningNotificationThreshold.inMinutes,
+      },
+    );
+
+    // Load saved notification state
+    await _loadNotificationState();
 
     // Start activity recognition
     final activityRecognition = ActivityRecognition();
@@ -178,54 +125,215 @@ class DrivingDetectionService {
       (ActivityEvent event) {
         _handleActivityChange(event);
       },
-      onError: (error) {
-        debugPrint('Activity Recognition Error: $error');
+      onError: (error) async {
+        await _debugLogger.error(
+          'Activity recognition error',
+          category: LogCategory.activity,
+          details: error.toString(),
+          error: error,
+        );
       },
     );
 
-    debugPrint('Driving detection service initialized');
+    // Start timer to check tracking-based notifications every minute
+    _startTrackingCheckTimer();
+
+    await _debugLogger.info(
+      'Driving detection service initialized successfully',
+      category: LogCategory.notification,
+      metadata: {
+        'hasTrackingNotifier': _trackingNotifier != null,
+        'notificationCount': _notificationCount,
+        'isFirstNotificationOfDay': _isFirstNotificationOfDay,
+      },
+    );
   }
 
   // Handle activity changes
   void _handleActivityChange(ActivityEvent event) {
     final bool isDriving = event.type == ActivityType.IN_VEHICLE;
+    final bool stateChanged = isDriving != _lastDrivingState;
+
+    _debugLogger.debug(
+      'Activity change detected',
+      category: LogCategory.activity,
+      metadata: {
+        'activityType': event.type.name,
+        'isDriving': isDriving,
+        'stateChanged': stateChanged,
+        'confidence': event.confidence,
+        'detectionEnabled': _isDetectionEnabled,
+        'isCurrentlyTracking': _isCurrentlyTracking(),
+      },
+    );
 
     // Check if detection is enabled
     if (!_isDetectionEnabled) {
+      _debugLogger.debug(
+        'Activity change ignored - detection disabled',
+        category: LogCategory.notification,
+      );
       _cancelDrivingDetectionTimer();
       return;
     }
 
-    // Handle driving session tracking
-    _handleDrivingSessionChange(isDriving);
-
-    // Handle driving detection notifications (original logic)
-    _handleDrivingDetectionChange(isDriving);
+    // Handle driving detection notifications (only when not tracking)
+    if (_trackingNotifier == null || !_isCurrentlyTracking()) {
+      _handleDrivingDetectionChange(isDriving);
+    } else {
+      _debugLogger.debug(
+        'Activity change ignored - currently tracking via UI',
+        category: LogCategory.notification,
+        metadata: {
+          'trackingDuration': _getCurrentTrackingDuration()?.inMinutes
+        },
+      );
+    }
 
     _lastDrivingState = isDriving;
   }
 
-  // Handle driving session tracking for rest notifications
-  void _handleDrivingSessionChange(bool isDriving) async {
-    if (!await _isWithinWorkingHours()) {
-      // Reset session if outside working hours
-      if (_currentSession != null) {
-        await _resetDrivingSession();
-      }
+  // Start timer to check tracking-based notifications
+  void _startTrackingCheckTimer() {
+    _trackingCheckTimer?.cancel();
+    _trackingCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _checkTrackingBasedNotifications();
+    });
+  }
+
+  // Check if currently tracking via UI tracker
+  bool _isCurrentlyTracking() {
+    if (_ref == null) return false;
+    final trackingState = _ref!.read(trackingNotifierProvider);
+    return trackingState.status == TrackingStatus.active &&
+        trackingState.activeSession != null;
+  }
+
+  // Get current tracking duration from UI tracker
+  Duration? _getCurrentTrackingDuration() {
+    if (_ref == null) return null;
+    final trackingState = _ref!.read(trackingNotifierProvider);
+    if (trackingState.status != TrackingStatus.active ||
+        trackingState.activeSession == null) {
+      return null;
+    }
+    return Duration(seconds: trackingState.activeSession!.durationInSeconds);
+  }
+
+  // Check for tracker-based rest notifications
+  void _checkTrackingBasedNotifications() {
+    if (!_isDetectionEnabled) {
+      _debugLogger.debug(
+        'Tracking notification check skipped - detection disabled',
+        category: LogCategory.notification,
+      );
       return;
     }
 
+    final trackingDuration = _getCurrentTrackingDuration();
+    if (trackingDuration == null) {
+      // Not tracking, reset notification times
+      _debugLogger.debug(
+        'Not tracking - resetting notification state',
+        category: LogCategory.notification,
+      );
+      _resetNotificationState();
+      return;
+    }
+
+    _debugLogger.debug(
+      'Checking tracking-based notifications',
+      category: LogCategory.notification,
+      metadata: {
+        'trackingDuration': trackingDuration.inMinutes,
+        'lastWarningTime': _lastWarningTime?.toIso8601String(),
+        'lastRestAlertTime': _lastRestAlertTime?.toIso8601String(),
+        'lastDrivingNotificationTime':
+            _lastDrivingNotificationTime?.toIso8601String(),
+        'restAlertCount': _restAlertCount,
+      },
+    );
+
     final now = DateTime.now();
 
-    if (isDriving && !_lastDrivingState) {
-      // Started driving
-      await _handleDrivingStarted(now);
-    } else if (!isDriving && _lastDrivingState) {
-      // Stopped driving
-      await _handleDrivingStopped(now);
-    } else if (isDriving && _currentSession != null) {
-      // Continue driving - check for rest notifications
-      await _checkForRestNotifications();
+    // Check for 90-minute warning (but only send every 2 hours)
+    if (trackingDuration >= _warningNotificationThreshold) {
+      if (_lastWarningTime == null ||
+          now.difference(_lastWarningTime!) >= _repeatNotificationInterval) {
+        _debugLogger.info(
+          'Triggering 90-minute warning notification',
+          category: LogCategory.notification,
+          metadata: {
+            'trackingDuration': trackingDuration.inMinutes,
+            'timeSinceLastWarning': _lastWarningTime != null
+                ? now.difference(_lastWarningTime!).inMinutes
+                : null,
+          },
+        );
+        _showTrackingWarningNotification(trackingDuration);
+        _lastWarningTime = now;
+        _saveNotificationState();
+      } else {
+        _debugLogger.debug(
+          '90-minute warning suppressed - too soon since last warning',
+          category: LogCategory.notification,
+          metadata: {
+            'timeSinceLastWarning': now.difference(_lastWarningTime!).inMinutes,
+            'requiredInterval': _repeatNotificationInterval.inMinutes,
+          },
+        );
+      }
+    }
+
+    // Check for 2-hour rest alert (repeat every 2 hours)
+    if (trackingDuration >= _restNotificationThreshold) {
+      if (_lastRestAlertTime == null ||
+          now.difference(_lastRestAlertTime!) >= _repeatNotificationInterval) {
+        _debugLogger.warning(
+          'Triggering 2-hour rest alert notification',
+          category: LogCategory.notification,
+          metadata: {
+            'trackingDuration': trackingDuration.inMinutes,
+            'restAlertCount': _restAlertCount + 1,
+            'timeSinceLastAlert': _lastRestAlertTime != null
+                ? now.difference(_lastRestAlertTime!).inMinutes
+                : null,
+          },
+        );
+        _showTrackingRestAlert(trackingDuration);
+        _lastRestAlertTime = now;
+        _restAlertCount++;
+        _saveNotificationState();
+      } else {
+        _debugLogger.debug(
+          '2-hour rest alert suppressed - too soon since last alert',
+          category: LogCategory.notification,
+          metadata: {
+            'timeSinceLastAlert': now.difference(_lastRestAlertTime!).inMinutes,
+            'requiredInterval': _repeatNotificationInterval.inMinutes,
+          },
+        );
+      }
+    }
+
+    // Send driving detected notification every 2 hours when tracking
+    if (_lastDrivingNotificationTime == null ||
+        now.difference(_lastDrivingNotificationTime!) >=
+            _repeatNotificationInterval) {
+      _debugLogger.info(
+        'Triggering tracking continuation notification',
+        category: LogCategory.notification,
+        metadata: {
+          'trackingDuration': trackingDuration.inMinutes,
+          'timeSinceLastDrivingNotification':
+              _lastDrivingNotificationTime != null
+                  ? now.difference(_lastDrivingNotificationTime!).inMinutes
+                  : null,
+        },
+      );
+      _showTrackingContinuationNotification(trackingDuration);
+      _lastDrivingNotificationTime = now;
+      _saveNotificationState();
     }
   }
 
@@ -268,89 +376,127 @@ class DrivingDetectionService {
     _drivingDetectionTimer = null;
   }
 
-  // Handle when driving starts
-  Future<void> _handleDrivingStarted(DateTime now) async {
-    if (_currentSession == null) {
-      // Start new session
-      _currentSession = DrivingSession(
-        sessionStartTime: now,
-        accumulatedDrivingTime: Duration.zero,
-        currentDrivingStartTime: now,
-      );
-      debugPrint(
-          'Started new driving session at ${_formatTime(now.hour, now.minute)}');
-    } else {
-      // Resume driving in existing session
-      Duration? breakDuration;
-      if (_currentSession!.lastStopTime != null) {
-        breakDuration = now.difference(_currentSession!.lastStopTime!);
-      }
-
-      if (breakDuration != null && breakDuration > _sessionResetThreshold) {
-        // Long break - reset session
-        _currentSession = DrivingSession(
-          sessionStartTime: now,
-          accumulatedDrivingTime: Duration.zero,
-          currentDrivingStartTime: now,
-        );
-        debugPrint(
-            'Long break detected (${breakDuration.inMinutes}min) - started new session');
-      } else {
-        // Short break - resume session
-        _currentSession = _currentSession!.copyWith(
-          currentDrivingStartTime: now,
-          lastStopTime: null,
-        );
-        debugPrint(
-            'Resumed driving after ${breakDuration?.inMinutes ?? 0}min break');
-      }
-    }
-
-    await _saveDrivingSession();
-  }
-
-  // Handle when driving stops
-  Future<void> _handleDrivingStopped(DateTime now) async {
-    if (_currentSession?.currentDrivingStartTime != null) {
-      // Calculate driving time for this segment
-      final segmentDuration =
-          now.difference(_currentSession!.currentDrivingStartTime!);
-
-      // Add to accumulated time
-      _currentSession = _currentSession!.copyWith(
-        accumulatedDrivingTime:
-            _currentSession!.accumulatedDrivingTime + segmentDuration,
-        currentDrivingStartTime: null,
-        lastStopTime: now,
-      );
-
-      debugPrint(
-          'Stopped driving after ${segmentDuration.inMinutes}min - total session: ${_currentSession!.accumulatedDrivingTime.inMinutes}min');
-      await _saveDrivingSession();
+  // Reset notification state when not tracking
+  void _resetNotificationState() {
+    if (_lastWarningTime != null ||
+        _lastRestAlertTime != null ||
+        _lastDrivingNotificationTime != null) {
+      _lastWarningTime = null;
+      _lastRestAlertTime = null;
+      _lastDrivingNotificationTime = null;
+      _restAlertCount = 0;
+      _saveNotificationState();
+      debugPrint('Reset notification state - not tracking');
     }
   }
 
-  // Check if rest notifications should be sent
-  Future<void> _checkForRestNotifications() async {
-    if (_currentSession == null) return;
+  // Show tracking-based warning notification
+  void _showTrackingWarningNotification(Duration trackingDuration) {
+    final hours = trackingDuration.inHours;
+    final minutes = trackingDuration.inMinutes % 60;
+    final durationText = hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
 
-    final totalDrivingTime = _currentSession!.totalDrivingTime;
+    final notificationData = NotificationData(
+      title: 'Take a Break Soon',
+      body:
+          'You\'ve been tracking for $durationText. Consider taking a break for your safety.',
+      channel: NotificationChannel.safety,
+      id: _longDriveWarningId,
+      payload: 'tracking_warning',
+      autoCancel: true,
+      timeoutAfter: const Duration(minutes: 10),
+    );
 
-    // Check for 1.5 hour warning
-    if (totalDrivingTime >= _warningNotificationThreshold &&
-        !_currentSession!.hasShownWarning) {
-      await _showRestWarningNotification();
-      _currentSession = _currentSession!.copyWith(hasShownWarning: true);
-      await _saveDrivingSession();
-    }
+    _debugLogger.info(
+      'Showing tracking warning notification',
+      category: LogCategory.notification,
+      details:
+          'User has been tracking for $durationText - showing 90-minute warning',
+      metadata: {
+        'notificationId': _longDriveWarningId,
+        'trackingDurationMinutes': trackingDuration.inMinutes,
+        'notificationTitle': notificationData.title,
+        'notificationBody': notificationData.body,
+        'channel': notificationData.channel.name,
+        'payload': notificationData.payload,
+      },
+    );
 
-    // Check for 2 hour rest alert
-    if (totalDrivingTime >= _restNotificationThreshold &&
-        !_currentSession!.hasShownRestAlert) {
-      await _showRestAlertNotification();
-      _currentSession = _currentSession!.copyWith(hasShownRestAlert: true);
-      await _saveDrivingSession();
-    }
+    _notificationService.show(notificationData);
+  }
+
+  // Show tracking-based rest alert
+  void _showTrackingRestAlert(Duration trackingDuration) {
+    final hours = trackingDuration.inHours;
+    final minutes = trackingDuration.inMinutes % 60;
+    final durationText = hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+    final alertNumber = _restAlertCount + 1;
+
+    final notificationData = NotificationData(
+      title: 'Rest Break Required',
+      body:
+          'You\'ve been tracking for $durationText. Take a 15-minute break for your well-being. (Alert #$alertNumber)',
+      channel: NotificationChannel.safety,
+      id: _restBreakAlertId,
+      payload: 'tracking_rest_alert',
+      autoCancel: true,
+      timeoutAfter: const Duration(minutes: 15),
+    );
+
+    _debugLogger.warning(
+      'Showing critical rest alert notification',
+      category: LogCategory.notification,
+      details:
+          'User has been tracking for $durationText - showing 2-hour rest alert #$alertNumber',
+      metadata: {
+        'notificationId': _restBreakAlertId,
+        'trackingDurationMinutes': trackingDuration.inMinutes,
+        'alertNumber': alertNumber,
+        'totalRestAlerts': _restAlertCount + 1,
+        'notificationTitle': notificationData.title,
+        'notificationBody': notificationData.body,
+        'channel': notificationData.channel.name,
+        'payload': notificationData.payload,
+        'timeoutMinutes': 15,
+      },
+    );
+
+    _notificationService.show(notificationData);
+  }
+
+  // Show continuation notification while tracking
+  void _showTrackingContinuationNotification(Duration trackingDuration) {
+    final hours = trackingDuration.inHours;
+    final durationText = hours > 0
+        ? '${hours}h tracking'
+        : '${trackingDuration.inMinutes}m tracking';
+
+    final notificationData = NotificationData(
+      title: 'Tracking Active',
+      body:
+          'Great work! You\'ve been tracking for $durationText. Stay safe and keep earning.',
+      channel: NotificationChannel.driving,
+      id: _drivingDetectedId,
+      payload: 'tracking_continuation',
+      autoCancel: true,
+      timeoutAfter: const Duration(minutes: 8),
+    );
+
+    _debugLogger.info(
+      'Showing tracking continuation notification',
+      category: LogCategory.notification,
+      details: 'Encouraging user who has been tracking for $durationText',
+      metadata: {
+        'notificationId': _drivingDetectedId,
+        'trackingDurationMinutes': trackingDuration.inMinutes,
+        'notificationTitle': notificationData.title,
+        'notificationBody': notificationData.body,
+        'channel': notificationData.channel.name,
+        'payload': notificationData.payload,
+      },
+    );
+
+    _notificationService.show(notificationData);
   }
 
   // Show enhanced warning notification at 1.5 hours
@@ -389,21 +535,44 @@ class DrivingDetectionService {
 
   // Show enhanced notification for driving detection
   Future<void> _notifyDrivingDetected() async {
-    if (!_isDetectionEnabled || _ref == null) return;
+    if (!_isDetectionEnabled || _ref == null) {
+      await _debugLogger.debug(
+        'Driving detection notification skipped',
+        category: LogCategory.notification,
+        metadata: {
+          'detectionEnabled': _isDetectionEnabled,
+          'hasRef': _ref != null,
+        },
+      );
+      return;
+    }
 
     // Check if user is within scheduled work hours
     final isWithinSchedule = await _isWithinWorkingHours();
     if (!isWithinSchedule) {
-      debugPrint(
-          'Driving detected outside of scheduled work hours - notification suppressed');
+      await _debugLogger.info(
+        'Driving detected outside work hours - notification suppressed',
+        category: LogCategory.notification,
+        metadata: {'withinSchedule': isWithinSchedule},
+      );
       return;
     }
 
     // Check if enough time has passed since last notification
     final canNotify = await _canShowNotification();
+    final timeUntilNext = await getTimeUntilNextNotification();
+
     if (!canNotify) {
-      debugPrint(
-          'Not enough time passed since last driving notification - notification suppressed');
+      await _debugLogger.debug(
+        'Driving notification suppressed - too soon since last notification',
+        category: LogCategory.notification,
+        metadata: {
+          'canNotify': canNotify,
+          'timeUntilNextMinutes': timeUntilNext?.inMinutes,
+          'notificationCount': _notificationCount,
+          'isFirstOfDay': _isFirstNotificationOfDay,
+        },
+      );
       return;
     }
 
@@ -423,20 +592,36 @@ class DrivingDetectionService {
       body = 'Track your work hours and maximize your earnings.';
     }
 
-    _notificationService.show(
-      NotificationData(
-        title: title,
-        body: body,
-        channel: NotificationChannel.driving,
-        id: _drivingDetectedId,
-        payload: 'driving_detected',
-        autoCancel: true,
-        timeoutAfter: const Duration(minutes: 5),
-      ),
+    final notificationData = NotificationData(
+      title: title,
+      body: body,
+      channel: NotificationChannel.driving,
+      id: _drivingDetectedId,
+      payload: 'driving_detected',
+      autoCancel: true,
+      timeoutAfter: const Duration(minutes: 5),
     );
 
-    debugPrint(
-        'Enhanced driving notification #$_notificationCount shown - within schedule and interval requirements met');
+    await _debugLogger.info(
+      'Showing driving detection notification',
+      category: LogCategory.notification,
+      details:
+          'Activity-based driving detection triggered notification #$_notificationCount',
+      metadata: {
+        'notificationId': _drivingDetectedId,
+        'notificationCount': _notificationCount,
+        'isFirstOfDay': _isFirstNotificationOfDay,
+        'withinSchedule': isWithinSchedule,
+        'canNotify': canNotify,
+        'title': title,
+        'body': body,
+        'channel': notificationData.channel.name,
+        'payload': notificationData.payload,
+        'timeoutMinutes': 5,
+      },
+    );
+
+    _notificationService.show(notificationData);
   }
 
   // Check if current time is within user's scheduled working hours
@@ -459,8 +644,10 @@ class DrivingDetectionService {
       final now = DateTime.now();
 
       // Check if this is a new day
-      if (lastNotificationDateMs == null || 
-          !_isSameDay(DateTime.fromMillisecondsSinceEpoch(lastNotificationDateMs), now)) {
+      if (lastNotificationDateMs == null ||
+          !_isSameDay(
+              DateTime.fromMillisecondsSinceEpoch(lastNotificationDateMs),
+              now)) {
         _isFirstNotificationOfDay = true;
         _notificationCount = 0;
         _lastNotificationDate = now;
@@ -476,15 +663,16 @@ class DrivingDetectionService {
         return true;
       }
 
-      final lastNotificationTime = DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
+      final lastNotificationTime =
+          DateTime.fromMillisecondsSinceEpoch(lastNotificationTimeMs);
       final timeSinceLastNotification = now.difference(lastNotificationTime);
-      
+
       // Dynamic interval based on notification count
       Duration requiredInterval;
       if (_notificationCount == 1) {
         requiredInterval = _firstNotificationInterval; // 30 minutes
       } else if (_notificationCount == 2) {
-        requiredInterval = _subsequentNotificationInterval; // 1 hour  
+        requiredInterval = _subsequentNotificationInterval; // 1 hour
       } else {
         requiredInterval = _maxNotificationInterval; // 2 hours max
       }
@@ -505,10 +693,10 @@ class DrivingDetectionService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
-      
+
       // Update notification count
       _notificationCount++;
-      
+
       // Save all notification state
       await prefs.setInt(_lastNotificationTimeKey, now.millisecondsSinceEpoch);
       await prefs.setInt(_notificationCountKey, _notificationCount);
@@ -518,8 +706,9 @@ class DrivingDetectionService {
       _isFirstNotificationOfDay = false;
       _lastNotificationDate = now;
       _lastNotificationTime = now;
-      
-      debugPrint('Saved notification #$_notificationCount at ${now.toString()}');
+
+      debugPrint(
+          'Saved notification #$_notificationCount at ${now.toString()}');
     } catch (e) {
       debugPrint('Error saving last notification time: $e');
     }
@@ -550,8 +739,8 @@ class DrivingDetectionService {
   // Helper method to check if two dates are the same day
   bool _isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
-           date1.month == date2.month &&
-           date1.day == date2.day;
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   // Format time for debugging
@@ -568,28 +757,34 @@ class DrivingDetectionService {
     // If disabling, clear any pending detection
     if (!enabled) {
       _cancelDrivingDetectionTimer();
+      _trackingCheckTimer?.cancel();
       _drivingStartTime = null;
 
       // Cancel driving notifications if they exist
-      _notificationService.cancel(_drivingDetectedId); // Driving detection notification
-      _notificationService.cancel(_longDriveWarningId); // Warning notification
-      _notificationService.cancel(_restBreakAlertId); // Rest alert notification
-      _notificationService.cancel(_breakSuggestionId); // Break suggestion
-      _notificationService.cancel(_workStartReminderID); // Work start reminder
-      _notificationService.cancel(_workEndReminderID); // Work end reminder
+      _notificationService.cancel(_drivingDetectedId);
+      _notificationService.cancel(_longDriveWarningId);
+      _notificationService.cancel(_restBreakAlertId);
+      _notificationService.cancel(_breakSuggestionId);
+      _notificationService.cancel(_workStartReminderID);
+      _notificationService.cancel(_workEndReminderID);
 
-      // Reset driving session
-      _resetDrivingSession();
+      // Reset notification state
+      _resetNotificationState();
+    } else {
+      // Re-enable tracking check timer
+      _startTrackingCheckTimer();
     }
   }
 
-  // Manually reset driving session (useful for testing or user request)
-  Future<void> resetDrivingSession() async {
-    await _resetDrivingSession();
+  // Manually reset all notification state (useful for testing or user request)
+  Future<void> resetNotificationState() async {
+    _resetNotificationState();
+    await _clearNotificationState();
     // Cancel any active rest notifications
     _notificationService.cancel(_longDriveWarningId);
     _notificationService.cancel(_restBreakAlertId);
     _notificationService.cancel(_breakSuggestionId);
+    debugPrint('Manually reset all notification state');
   }
 
   // Reset the notification timer (useful for testing or user request)
@@ -599,12 +794,12 @@ class DrivingDetectionService {
       await prefs.remove(_lastNotificationTimeKey);
       await prefs.remove(_notificationCountKey);
       await prefs.remove(_lastNotificationDateKey);
-      
+
       _notificationCount = 0;
       _isFirstNotificationOfDay = true;
       _lastNotificationDate = null;
       _lastNotificationTime = null;
-      
+
       debugPrint(
           'Notification timer and count reset - next driving detection will show immediately');
     } catch (e) {
@@ -655,84 +850,95 @@ class DrivingDetectionService {
     }
   }
 
-  // Load driving session from persistence
-  Future<void> _loadDrivingSession() async {
+  // Load notification state from persistence
+  Future<void> _loadNotificationState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final sessionJson = prefs.getString(_drivingSessionKey);
 
-      if (sessionJson != null) {
-        final Map<String, dynamic> sessionData =
-            Map<String, dynamic>.from(await compute(_parseJson, sessionJson));
-        _currentSession = DrivingSession.fromJson(sessionData);
-
-        // Check if session is from today and within reasonable time
-        final now = DateTime.now();
-        final sessionAge = now.difference(_currentSession!.sessionStartTime);
-
-        if (sessionAge.inHours > 24 || !await _isWithinWorkingHours()) {
-          // Session is too old or outside work hours - reset
-          await _resetDrivingSession();
-        } else {
-          debugPrint('Loaded existing driving session: $_currentSession');
-        }
+      final lastWarningMs = prefs.getInt(_lastWarningTimeKey);
+      if (lastWarningMs != null) {
+        _lastWarningTime = DateTime.fromMillisecondsSinceEpoch(lastWarningMs);
       }
+
+      final lastRestAlertMs = prefs.getInt(_lastRestAlertTimeKey);
+      if (lastRestAlertMs != null) {
+        _lastRestAlertTime =
+            DateTime.fromMillisecondsSinceEpoch(lastRestAlertMs);
+      }
+
+      _restAlertCount = prefs.getInt(_restAlertCountKey) ?? 0;
+
+      // Check if it's a new day - reset notification state
+      final lastNotificationDateMs = prefs.getInt(_lastNotificationDateKey);
+      final now = DateTime.now();
+
+      if (lastNotificationDateMs == null ||
+          !_isSameDay(
+              DateTime.fromMillisecondsSinceEpoch(lastNotificationDateMs),
+              now)) {
+        _resetNotificationState();
+        debugPrint('New day detected - reset notification state');
+      }
+
+      debugPrint(
+          'Loaded notification state - Warning: $_lastWarningTime, RestAlert: $_lastRestAlertTime, Count: $_restAlertCount');
     } catch (e) {
-      debugPrint('Error loading driving session: $e');
-      _currentSession = null;
+      debugPrint('Error loading notification state: $e');
     }
   }
 
-  // Save driving session to persistence
-  Future<void> _saveDrivingSession() async {
+  // Save notification state to persistence
+  Future<void> _saveNotificationState() async {
     try {
-      if (_currentSession == null) return;
-
       final prefs = await SharedPreferences.getInstance();
-      final sessionJson = await compute(_encodeJson, _currentSession!.toJson());
-      await prefs.setString(_drivingSessionKey, sessionJson);
+      final now = DateTime.now();
+
+      if (_lastWarningTime != null) {
+        await prefs.setInt(
+            _lastWarningTimeKey, _lastWarningTime!.millisecondsSinceEpoch);
+      }
+
+      if (_lastRestAlertTime != null) {
+        await prefs.setInt(
+            _lastRestAlertTimeKey, _lastRestAlertTime!.millisecondsSinceEpoch);
+      }
+
+      await prefs.setInt(_restAlertCountKey, _restAlertCount);
+      await prefs.setInt(_lastNotificationDateKey, now.millisecondsSinceEpoch);
+
+      debugPrint('Saved notification state');
     } catch (e) {
-      debugPrint('Error saving driving session: $e');
+      debugPrint('Error saving notification state: $e');
     }
   }
 
-  // Reset driving session
-  Future<void> _resetDrivingSession() async {
+  // Clear all saved notification state
+  Future<void> _clearNotificationState() async {
     try {
-      _currentSession = null;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_drivingSessionKey);
-      debugPrint('Reset driving session');
+      await prefs.remove(_lastWarningTimeKey);
+      await prefs.remove(_lastRestAlertTimeKey);
+      await prefs.remove(_restAlertCountKey);
+      debugPrint('Cleared notification state');
     } catch (e) {
-      debugPrint('Error resetting driving session: $e');
+      debugPrint('Error clearing notification state: $e');
     }
   }
 
-  // Helper functions for compute isolates
-  static Map<String, dynamic> _parseJson(String jsonString) {
-    return Map<String, dynamic>.from(jsonDecode(jsonString));
-  }
+  // Helper function removed - no longer needed for tracker-based approach
 
-  static String _encodeJson(Map<String, dynamic> data) {
-    return jsonEncode(data);
-  }
-
-  // Get current driving session info (for debugging)
-  Map<String, dynamic> getDrivingSessionInfo() {
-    if (_currentSession == null) {
-      return {'hasSession': false};
-    }
+  // Get current tracking info (for debugging)
+  Map<String, dynamic> getTrackingInfo() {
+    final isTracking = _isCurrentlyTracking();
+    final trackingDuration = _getCurrentTrackingDuration();
 
     return {
-      'hasSession': true,
-      'sessionStartTime': _currentSession!.sessionStartTime.toString(),
-      'accumulatedDrivingTime':
-          _currentSession!.accumulatedDrivingTime.inMinutes,
-      'totalDrivingTime': _currentSession!.totalDrivingTime.inMinutes,
-      'isCurrentlyDriving': _currentSession!.isCurrentlyDriving,
-      'hasShownWarning': _currentSession!.hasShownWarning,
-      'hasShownRestAlert': _currentSession!.hasShownRestAlert,
-      'lastStopTime': _currentSession!.lastStopTime?.toString(),
+      'isTracking': isTracking,
+      'trackingDuration': trackingDuration?.inMinutes,
+      'lastWarningTime': _lastWarningTime?.toString(),
+      'lastRestAlertTime': _lastRestAlertTime?.toString(),
+      'restAlertCount': _restAlertCount,
+      'lastDrivingNotificationTime': _lastDrivingNotificationTime?.toString(),
     };
   }
 
@@ -749,7 +955,7 @@ class DrivingDetectionService {
       'timeUntilNextNotification': timeUntilNext,
       'canShowNotification':
           isWithinSchedule && canNotify && _isDetectionEnabled,
-      'drivingSession': getDrivingSessionInfo(),
+      'trackingInfo': getTrackingInfo(),
       'isFirstNotificationOfDay': _isFirstNotificationOfDay,
       'notificationCount': _notificationCount,
       'lastNotificationTime': _lastNotificationTime?.toString(),
@@ -774,12 +980,12 @@ class DrivingDetectionService {
 
     _notificationService.show(
       NotificationData(
-        title: customTitle ?? 'TEST: Driving Detected',
+        title: customTitle ?? 'TEST: Tracker-Based System',
         body: customBody ??
-            'This is a test notification to verify the notification system is working.',
+            'Testing the new tracker-integrated notification system. Rest alerts now rely on UI timer.',
         channel: NotificationChannel.driving,
         id: 199, // Different ID for test notifications
-        payload: 'test_driving_detected',
+        payload: 'test_tracker_integration',
         autoCancel: true,
         timeoutAfter: const Duration(minutes: 5),
       ),
@@ -800,7 +1006,7 @@ class DrivingDetectionService {
     debugPrint('🧪 TESTING: Resetting all testing states...');
 
     await resetNotificationTimer();
-    await resetDrivingSession();
+    await resetNotificationState();
 
     _isFirstNotificationOfDay = true;
     _lastNotificationDate = null;
@@ -813,14 +1019,51 @@ class DrivingDetectionService {
     _notificationService.cancel(_earningsUpdateId);
   }
 
+  /// Test method to simulate 2-hour tracking and trigger rest alert
+  Future<void> testRestNotifications() async {
+    debugPrint('🧪 TESTING: Simulating rest notifications...');
+
+    // Simulate 90-minute warning
+    _showTrackingWarningNotification(const Duration(minutes: 95));
+
+    // Wait a bit, then simulate 2-hour alert
+    await Future.delayed(const Duration(seconds: 3));
+    _showTrackingRestAlert(const Duration(hours: 2, minutes: 5));
+
+    // Simulate continuation notification
+    await Future.delayed(const Duration(seconds: 3));
+    _showTrackingContinuationNotification(
+        const Duration(hours: 2, minutes: 30));
+  }
+
+  /// Test method to check current tracking integration
+  Future<void> testTrackingIntegration() async {
+    debugPrint('🧪 TESTING: Testing tracking integration...');
+
+    final isTracking = _isCurrentlyTracking();
+    final duration = _getCurrentTrackingDuration();
+
+    debugPrint('🧪 Is Currently Tracking: $isTracking');
+    debugPrint(
+        '🧪 Current Tracking Duration: ${duration?.inMinutes ?? 0} minutes');
+
+    if (isTracking && duration != null) {
+      debugPrint('🧪 Triggering tracker-based notification check...');
+      _checkTrackingBasedNotifications();
+    } else {
+      debugPrint('🧪 Not tracking - would show driving detection instead');
+      await simulateDrivingDetected();
+    }
+  }
+
   // NEW ENHANCED NOTIFICATIONS
-  
+
   /// Show work start reminder notification
   Future<void> showWorkStartReminder() async {
     final now = DateTime.now();
     final hour = now.hour;
     String timeContext;
-    
+
     if (hour < 6) {
       timeContext = 'early morning';
     } else if (hour < 12) {
@@ -830,10 +1073,11 @@ class DrivingDetectionService {
     } else {
       timeContext = 'evening';
     }
-    
+
     _notificationService.show(
       NotificationData(
-        title: 'Ready to Start Your ${timeContext.split(' ').last.toUpperCase()} Shift?',
+        title:
+            'Ready to Start Your ${timeContext.split(' ').last.toUpperCase()} Shift?',
         body: 'Good $timeContext! Tap to begin tracking your work session.',
         channel: NotificationChannel.driving,
         id: _workStartReminderID,
@@ -844,23 +1088,24 @@ class DrivingDetectionService {
     );
     debugPrint('Showed work start reminder notification');
   }
-  
+
   /// Show work end reminder notification
   Future<void> showWorkEndReminder(Duration workDuration) async {
     final hours = workDuration.inHours;
     final minutes = workDuration.inMinutes % 60;
     String durationText = '';
-    
+
     if (hours > 0) {
       durationText = '${hours}h ${minutes}m';
     } else {
       durationText = '${minutes}m';
     }
-    
+
     _notificationService.show(
       NotificationData(
         title: 'Great Work Session!',
-        body: 'You\'ve been working for $durationText. Consider ending your shift to rest.',
+        body:
+            'You\'ve been working for $durationText. Consider ending your shift to rest.',
         channel: NotificationChannel.driving,
         id: _workEndReminderID,
         payload: 'work_end_reminder',
@@ -870,13 +1115,13 @@ class DrivingDetectionService {
     );
     debugPrint('Showed work end reminder notification');
   }
-  
+
   /// Show intelligent break suggestion
   Future<void> showBreakSuggestion() async {
     final now = DateTime.now();
     final hour = now.hour;
     String breakSuggestion;
-    
+
     if (hour >= 11 && hour <= 13) {
       breakSuggestion = 'Perfect time for a lunch break!';
     } else if (hour >= 15 && hour <= 17) {
@@ -884,7 +1129,7 @@ class DrivingDetectionService {
     } else {
       breakSuggestion = 'Take a moment to stretch and hydrate.';
     }
-    
+
     _notificationService.show(
       NotificationData(
         title: 'Break Time Suggestion',
@@ -898,16 +1143,17 @@ class DrivingDetectionService {
     );
     debugPrint('Showed break suggestion notification');
   }
-  
+
   /// Show earnings update notification
   Future<void> showEarningsUpdate(double earnings, Duration workTime) async {
     final hours = workTime.inHours;
     final formattedEarnings = earnings.toStringAsFixed(2);
-    
+
     _notificationService.show(
       NotificationData(
         title: 'Earnings Update',
-        body: 'You\'ve earned \$${formattedEarnings} in ${hours}h of work today. Keep it up!',
+        body:
+            'You\'ve earned \$${formattedEarnings} in ${hours}h of work today. Keep it up!',
         channel: NotificationChannel.system,
         id: _earningsUpdateId,
         payload: 'earnings_update',
@@ -917,15 +1163,21 @@ class DrivingDetectionService {
     );
     debugPrint('Showed earnings update notification');
   }
-  
+
   /// Show smart driving continuation notification
   Future<void> showSmartDrivingContinuation() async {
-    final currentSession = _currentSession;
-    if (currentSession == null) return;
-    
-    final totalMinutes = currentSession.totalDrivingTime.inMinutes;
+    final trackingDuration = _getCurrentTrackingDuration();
+    if (trackingDuration == null) {
+      await _debugLogger.debug(
+        'Cannot show smart driving continuation - not tracking',
+        category: LogCategory.notification,
+      );
+      return;
+    }
+
+    final totalMinutes = trackingDuration.inMinutes;
     String message;
-    
+
     if (totalMinutes < 30) {
       message = 'Just started? Track your short trips for better insights.';
     } else if (totalMinutes < 60) {
@@ -933,25 +1185,41 @@ class DrivingDetectionService {
     } else {
       message = 'Long session active. Remember to take breaks when safe.';
     }
-    
-    _notificationService.show(
-      NotificationData(
-        title: 'Smart Tracking Active',
-        body: message,
-        channel: NotificationChannel.driving,
-        id: _drivingDetectedId,
-        payload: 'smart_driving_continuation',
-        autoCancel: true,
-        timeoutAfter: const Duration(minutes: 8),
-      ),
+
+    final notificationData = NotificationData(
+      title: 'Smart Tracking Active',
+      body: message,
+      channel: NotificationChannel.driving,
+      id: _drivingDetectedId,
+      payload: 'smart_driving_continuation',
+      autoCancel: true,
+      timeoutAfter: const Duration(minutes: 8),
     );
-    debugPrint('Showed smart driving continuation notification');
+
+    await _debugLogger.info(
+      'Showing smart driving continuation notification',
+      category: LogCategory.notification,
+      details:
+          'User has been tracking for ${totalMinutes}min - showing smart continuation message',
+      metadata: {
+        'notificationId': _drivingDetectedId,
+        'trackingDurationMinutes': totalMinutes,
+        'message': message,
+        'notificationTitle': notificationData.title,
+        'notificationBody': notificationData.body,
+        'channel': notificationData.channel.name,
+        'payload': notificationData.payload,
+      },
+    );
+
+    _notificationService.show(notificationData);
   }
 
   // Dispose of resources
   void dispose() {
     _activitySubscription?.cancel();
     _cancelDrivingDetectionTimer();
+    _trackingCheckTimer?.cancel();
   }
 }
 
@@ -959,8 +1227,14 @@ class DrivingDetectionService {
 DrivingDetectionService drivingDetectionService(Ref ref) {
   final service = DrivingDetectionService();
 
-  // Set the ref for accessing user data
+  // Set the ref for accessing user data and tracking notifier
   service._ref = ref;
+
+  // Get tracking notifier reference for UI timer integration
+  service._trackingNotifier = ref.read(trackingNotifierProvider.notifier);
+
+  // Initialize debug logger
+  service._debugLogger = ref.read(debugLogServiceProvider);
 
   // Initialize the service with ref for accessing user data
   service.initialize();

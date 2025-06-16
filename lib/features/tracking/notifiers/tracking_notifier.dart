@@ -9,6 +9,7 @@ import 'package:gigways/features/tracking/repositories/tracking_repository.dart'
 import 'package:gigways/features/tracking/services/location_service.dart';
 import 'package:gigways/core/services/notification_service.dart';
 import 'package:gigways/core/services/driving_detection_service.dart';
+import 'package:gigways/core/services/debug_log_service.dart';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 
 part 'tracking_notifier.g.dart';
@@ -121,6 +122,7 @@ class TrackingNotifier extends _$TrackingNotifier {
       ref.read(notificationServiceProvider);
   DrivingDetectionService get _drivingDetectionService =>
       ref.read(drivingDetectionServiceProvider);
+  DebugLogService get _debugLogger => ref.read(debugLogServiceProvider);
 
   @override
   TrackingState build() {
@@ -250,19 +252,21 @@ class TrackingNotifier extends _$TrackingNotifier {
       return;
     }
 
-    print('TrackingNotifier: Initializing tracking state for user ${authState.user!.uid}');
+    print(
+        'TrackingNotifier: Initializing tracking state for user ${authState.user!.uid}');
     state = state.copyWith(status: TrackingStatus.loading);
 
     try {
       // Check for active session
       final userId = authState.user!.uid;
       final activeSession = await _repository.getActiveSession(userId);
-      
+
       print('TrackingNotifier: Active session found: ${activeSession?.id}');
       print('TrackingNotifier: Session is active: ${activeSession?.isActive}');
 
       if (activeSession != null) {
-        print('TrackingNotifier: Resuming tracking for session ${activeSession.id}');
+        print(
+            'TrackingNotifier: Resuming tracking for session ${activeSession.id}');
         // If there's an active session, resume tracking
         await _resumeTracking(activeSession);
       } else {
@@ -275,8 +279,9 @@ class TrackingNotifier extends _$TrackingNotifier {
             : TrackingStatus.inactive,
         activeSession: activeSession,
       );
-      
-      print('TrackingNotifier: Initialization complete, status: ${state.status}');
+
+      print(
+          'TrackingNotifier: Initialization complete, status: ${state.status}');
     } catch (e) {
       print('TrackingNotifier: Error during initialization: $e');
       state = state.copyWith(
@@ -288,8 +293,17 @@ class TrackingNotifier extends _$TrackingNotifier {
 
   // Start tracking
   Future<void> startTracking() async {
+    await _debugLogger.info(
+      'Starting tracking session',
+      category: LogCategory.tracking,
+    );
+
     final authState = ref.read(authNotifierProvider);
     if (authState.user == null) {
+      await _debugLogger.error(
+        'Failed to start tracking - user not authenticated',
+        category: LogCategory.tracking,
+      );
       state = state.copyWith(
         status: TrackingStatus.error,
         errorMessage: 'User not authenticated',
@@ -302,6 +316,10 @@ class TrackingNotifier extends _$TrackingNotifier {
     try {
       // Disable driving detection notifications while tracking is active
       _drivingDetectionService.setDetectionEnabled(false);
+      await _debugLogger.debug(
+        'Disabled driving detection notifications during tracking',
+        category: LogCategory.tracking,
+      );
 
       // Cancel any inactivity notifications that might be showing
       _notificationService.cancel(104); // ID for inactivity notification
@@ -312,6 +330,16 @@ class TrackingNotifier extends _$TrackingNotifier {
         throw Exception('Failed to get initial location');
       }
 
+      await _debugLogger.debug(
+        'Got initial location for tracking',
+        category: LogCategory.location,
+        metadata: {
+          'latitude': initialLocation.latitude,
+          'longitude': initialLocation.longitude,
+          'timestamp': initialLocation.timestamp.toIso8601String(),
+        },
+      );
+
       final userId = authState.user!.uid;
 
       // Start a new session in the repository
@@ -319,7 +347,16 @@ class TrackingNotifier extends _$TrackingNotifier {
         userId: userId,
         initialLocation: initialLocation,
       );
-      
+
+      await _debugLogger.info(
+        'Created new tracking session',
+        category: LogCategory.tracking,
+        metadata: {
+          'sessionId': session.id,
+          'userId': userId,
+          'startTime': session.startTime.toIso8601String(),
+        },
+      );
 
       // Set up location subscription
       _locationSubscription?.cancel();
@@ -336,14 +373,31 @@ class TrackingNotifier extends _$TrackingNotifier {
       _setupTrackingTimer();
       _setupInactivityDetection();
 
+      await _debugLogger.info(
+        'Tracking session started successfully',
+        category: LogCategory.tracking,
+        metadata: {
+          'sessionId': session.id,
+          'trackingStartTime': _trackingStartTime!.toIso8601String(),
+          'initialLocationCount': _locationPoints.length,
+        },
+      );
+
       state = state.copyWith(
         status: TrackingStatus.active,
         activeSession: session,
         currentLocations: _locationPoints,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Re-enable driving detection on error
       _drivingDetectionService.setDetectionEnabled(true);
+
+      await _debugLogger.error(
+        'Failed to start tracking session',
+        category: LogCategory.tracking,
+        details: e.toString(),
+        error: e,
+      );
 
       state = state.copyWith(
         status: TrackingStatus.error,
@@ -598,11 +652,11 @@ class TrackingNotifier extends _$TrackingNotifier {
   Future<void> skipEarningsEntry() async {
     await endShift(earnings: 0.0, expenses: 0.0);
   }
-  
+
   // Force end shift immediately (used when user turns off tracker or skips)
   Future<void> forceEndShift() async {
     print('forceEndShift called');
-    
+
     final authState = ref.read(authNotifierProvider);
     if (authState.user == null) {
       print('User not authenticated');
@@ -629,7 +683,7 @@ class TrackingNotifier extends _$TrackingNotifier {
 
     final userId = authState.user!.uid;
     final sessionId = state.activeSession!.id;
-    
+
     print('Ending session - User: $userId, Session: $sessionId');
 
     try {
@@ -638,7 +692,7 @@ class TrackingNotifier extends _$TrackingNotifier {
       _trackingTimer?.cancel();
       _locationSubscription?.cancel();
       _inactivityTimer?.cancel();
-      
+
       print('Stopped tracking services');
 
       // End session in repository - store miles and duration, skip earnings/expenses
@@ -646,9 +700,10 @@ class TrackingNotifier extends _$TrackingNotifier {
         userId: userId,
         sessionId: sessionId,
         endTime: DateTime.now(),
-        skipEarningsEntry: true, // This tells repository we're skipping earnings
+        skipEarningsEntry:
+            true, // This tells repository we're skipping earnings
       );
-      
+
       print('Session ended in repository');
 
       // Cancel any ongoing notifications
@@ -657,7 +712,7 @@ class TrackingNotifier extends _$TrackingNotifier {
 
       // Re-enable driving detection
       _drivingDetectionService.setDetectionEnabled(true);
-      
+
       print('Cleaned up notifications and re-enabled driving detection');
 
       // Also ensure all other active sessions are ended
@@ -665,7 +720,7 @@ class TrackingNotifier extends _$TrackingNotifier {
         userId,
         endTime: DateTime.now(),
       );
-      
+
       print('Ended all active sessions');
 
       // Reset state to inactive
@@ -674,7 +729,7 @@ class TrackingNotifier extends _$TrackingNotifier {
         activeSession: null,
         currentLocations: [],
       );
-      
+
       print('State reset to inactive');
     } catch (e) {
       print('Error in forceEndShift: $e');

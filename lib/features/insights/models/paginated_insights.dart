@@ -69,8 +69,8 @@ class SummaryCardData {
 
   factory SummaryCardData.fromWeeklySummary(WeeklySummary weekly) {
     return SummaryCardData(
-      title: 'Week ${weekly.weekNumber}',
-      subtitle: weekly.dateRange,
+      title: weekly.dateRange,
+      subtitle: '${weekly.sessionCount} ${weekly.sessionCount == 1 ? 'session' : 'sessions'} this week',
       totalMiles: weekly.totalMiles,
       totalHours: weekly.totalHours,
       totalEarnings: weekly.totalEarnings,

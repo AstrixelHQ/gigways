@@ -207,11 +207,13 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
           periodType: InsightPeriodType.daily,
         );
       case InsightPeriod.weekly:
+        final weeklySummaries =
+            InsightSummaryHelper.groupSessionsByWeek(sessions);
         return PaginatedInsights(
-          summaries: sessions,
+          summaries: weeklySummaries,
           hasMore: sessions.length == _getInitialLimit(period),
-          totalCount: sessions.length,
-          periodType: InsightPeriodType.daily,
+          totalCount: weeklySummaries.length,
+          periodType: InsightPeriodType.weekly,
         );
       case InsightPeriod.monthly:
         final weeklySummaries =
@@ -256,9 +258,10 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
       case InsightPeriod.today:
         return (now.subtract(const Duration(days: 1)), now);
       case InsightPeriod.weekly:
-        return (now.subtract(const Duration(days: 7)), now);
+        // Get data from last 4 weeks (28 days) for better weekly aggregation
+        return (now.subtract(const Duration(days: 28)), now);
       case InsightPeriod.monthly:
-        return (now.subtract(const Duration(days: 30)), now);
+        return (now.subtract(const Duration(days: 90)), now); // 3 months for better weekly grouping
       case InsightPeriod.yearly:
         return (now.subtract(const Duration(days: 365)), now);
     }

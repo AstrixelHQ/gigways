@@ -10,6 +10,7 @@ import 'package:gigways/features/insights/pages/insights_page.dart';
 import 'package:gigways/features/onboarding/pages/pages.dart';
 import 'package:gigways/features/setting/models/policy_model.dart';
 import 'package:gigways/features/setting/pages/pages.dart';
+import 'package:gigways/features/setting/pages/debug_logs_page.dart';
 import 'package:gigways/features/strike/pages/pages.dart';
 import 'package:gigways/features/community/pages/pages.dart';
 import 'package:go_router/go_router.dart';
@@ -166,5 +167,13 @@ class InsightsRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return const InsightsPage();
+  }
+}
+
+@TypedGoRoute<DebugLogsRoute>(path: DebugLogsPage.path)
+class DebugLogsRoute extends GoRouteData {
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const DebugLogsPage();
   }
 }

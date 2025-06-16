@@ -59,10 +59,10 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.people_outline),
-          //   label: 'Community',
-          // ),
+          NavigationDestination(
+            icon: Icon(Icons.map),
+            label: 'Density',
+          ),
           NavigationDestination(
             icon: Icon(Icons.settings),
             label: 'Setting',

@@ -17,6 +17,7 @@ class DrivingSession {
   final DateTime? lastStopTime;
   final bool hasShownWarning;
   final bool hasShownRestAlert;
+  final bool hasShownStopNotification;
 
   DrivingSession({
     required this.sessionStartTime,
@@ -25,6 +26,7 @@ class DrivingSession {
     this.lastStopTime,
     this.hasShownWarning = false,
     this.hasShownRestAlert = false,
+    this.hasShownStopNotification = false,
   });
 
   /// Copy session with updated values
@@ -35,6 +37,7 @@ class DrivingSession {
     DateTime? lastStopTime,
     bool? hasShownWarning,
     bool? hasShownRestAlert,
+    bool? hasShownStopNotification,
   }) {
     return DrivingSession(
       sessionStartTime: sessionStartTime ?? this.sessionStartTime,
@@ -44,6 +47,7 @@ class DrivingSession {
       lastStopTime: lastStopTime,
       hasShownWarning: hasShownWarning ?? this.hasShownWarning,
       hasShownRestAlert: hasShownRestAlert ?? this.hasShownRestAlert,
+      hasShownStopNotification: hasShownStopNotification ?? this.hasShownStopNotification,
     );
   }
 
@@ -57,6 +61,7 @@ class DrivingSession {
       'lastStopTime': lastStopTime?.millisecondsSinceEpoch,
       'hasShownWarning': hasShownWarning,
       'hasShownRestAlert': hasShownRestAlert,
+      'hasShownStopNotification': hasShownStopNotification,
     };
   }
 
@@ -75,6 +80,7 @@ class DrivingSession {
           : null,
       hasShownWarning: json['hasShownWarning'] ?? false,
       hasShownRestAlert: json['hasShownRestAlert'] ?? false,
+      hasShownStopNotification: json['hasShownStopNotification'] ?? false,
     );
   }
 
@@ -121,6 +127,9 @@ class DrivingDetectionService {
   // Buffer for driving detection (to wait for continuous detection)
   DateTime? _drivingStartTime;
   Timer? _drivingDetectionTimer;
+  
+  // Timer for 15-minute stop notification
+  Timer? _stopNotificationTimer;
 
   // Threshold for continuous driving detection in seconds
   static const int _drivingDetectionThreshold =
@@ -270,6 +279,9 @@ class DrivingDetectionService {
 
   // Handle when driving starts
   Future<void> _handleDrivingStarted(DateTime now) async {
+    // Cancel any pending stop notification timer
+    _cancelStopNotificationTimer();
+    
     if (_currentSession == null) {
       // Start new session
       _currentSession = DrivingSession(
@@ -296,10 +308,11 @@ class DrivingDetectionService {
         debugPrint(
             'Long break detected (${breakDuration.inMinutes}min) - started new session');
       } else {
-        // Short break - resume session
+        // Short break - resume session (reset stop notification flag)
         _currentSession = _currentSession!.copyWith(
           currentDrivingStartTime: now,
           lastStopTime: null,
+          hasShownStopNotification: false, // Reset flag when driving resumes
         );
         debugPrint(
             'Resumed driving after ${breakDuration?.inMinutes ?? 0}min break');
@@ -326,8 +339,62 @@ class DrivingDetectionService {
 
       debugPrint(
           'Stopped driving after ${segmentDuration.inMinutes}min - total session: ${_currentSession!.accumulatedDrivingTime.inMinutes}min');
+      
+      // Start 15-minute timer for stop notification
+      _startStopNotificationTimer();
+      
       await _saveDrivingSession();
     }
+  }
+
+  // Start 15-minute timer for stop notification
+  void _startStopNotificationTimer() {
+    // Cancel any existing timer
+    _cancelStopNotificationTimer();
+    
+    // Only start timer if we haven't shown the notification for this stop period
+    if (_currentSession?.hasShownStopNotification == true) {
+      debugPrint('Stop notification already shown for this stop period - skipping timer');
+      return;
+    }
+    
+    debugPrint('Starting 15-minute stop notification timer');
+    _stopNotificationTimer = Timer(const Duration(minutes: 15), () async {
+      await _showStopNotification();
+    });
+  }
+  
+  // Cancel the stop notification timer
+  void _cancelStopNotificationTimer() {
+    _stopNotificationTimer?.cancel();
+    _stopNotificationTimer = null;
+  }
+  
+  // Show the simplified stop notification
+  Future<void> _showStopNotification() async {
+    if (_currentSession == null || 
+        _currentSession!.hasShownStopNotification ||
+        _currentSession!.isCurrentlyDriving) {
+      return;
+    }
+    
+    // Mark as shown to prevent repeated notifications
+    _currentSession = _currentSession!.copyWith(hasShownStopNotification: true);
+    await _saveDrivingSession();
+    
+    _notificationService.show(
+      NotificationData(
+        title: 'Break Time',
+        body: 'You\'ve been stopped for 15 minutes. Take a moment to rest or consider ending your shift.',
+        channel: NotificationChannel.breaks,
+        id: _breakSuggestionId,
+        payload: 'stop_15min_notification',
+        autoCancel: true,
+        timeoutAfter: const Duration(minutes: 10),
+      ),
+    );
+    
+    debugPrint('Showed 15-minute stop notification');
   }
 
   // Check if rest notifications should be sent
@@ -568,6 +635,7 @@ class DrivingDetectionService {
     // If disabling, clear any pending detection
     if (!enabled) {
       _cancelDrivingDetectionTimer();
+      _cancelStopNotificationTimer(); // Cancel 15-min timer
       _drivingStartTime = null;
 
       // Cancel driving notifications if they exist
@@ -732,6 +800,7 @@ class DrivingDetectionService {
       'isCurrentlyDriving': _currentSession!.isCurrentlyDriving,
       'hasShownWarning': _currentSession!.hasShownWarning,
       'hasShownRestAlert': _currentSession!.hasShownRestAlert,
+      'hasShownStopNotification': _currentSession!.hasShownStopNotification,
       'lastStopTime': _currentSession!.lastStopTime?.toString(),
     };
   }
@@ -952,6 +1021,7 @@ class DrivingDetectionService {
   void dispose() {
     _activitySubscription?.cancel();
     _cancelDrivingDetectionTimer();
+    _cancelStopNotificationTimer();
   }
 }
 

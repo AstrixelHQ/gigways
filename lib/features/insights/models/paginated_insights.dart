@@ -69,8 +69,8 @@ class SummaryCardData {
 
   factory SummaryCardData.fromWeeklySummary(WeeklySummary weekly) {
     return SummaryCardData(
-      title: 'Week ${weekly.weekNumber}',
-      subtitle: weekly.dateRange,
+      title: weekly.weekTitle, // "This Week", "Last Week", or "Week X"
+      subtitle: weekly.dateRange, // "Jan 1 - Jan 7"
       totalMiles: weekly.totalMiles,
       totalHours: weekly.totalHours,
       totalEarnings: weekly.totalEarnings,
@@ -81,10 +81,14 @@ class SummaryCardData {
     );
   }
 
-  factory SummaryCardData.fromMonthlySummary(MonthlySummary monthly) {
+  factory SummaryCardData.fromMonthlySummary(MonthlySummary monthly, {bool isYearlyView = false}) {
     return SummaryCardData(
-      title: monthly.monthName,
-      subtitle: '${monthly.year}',
+      title: isYearlyView 
+          ? monthly.yearlyTitle  // "January 2024" (always with year)
+          : monthly.monthTitle,  // "This Month", "Last Month", "January", or "January 2024"
+      subtitle: isYearlyView 
+          ? '${monthly.sessionCount} sessions' // "14 sessions" for yearly view
+          : monthly.fullDateRange, // "January 1 - 31" or "January 1 - 31, 2024" for monthly view
       totalMiles: monthly.totalMiles,
       totalHours: monthly.totalHours,
       totalEarnings: monthly.totalEarnings,

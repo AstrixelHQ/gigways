@@ -166,23 +166,30 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
   Widget _buildExportButton({
     required VoidCallback? onPressed,
   }) {
-    String buttonText = 'Export';
+    String buttonText = 'Export PDF';
     IconData buttonIcon = Icons.file_download_outlined;
+    Color backgroundColor = AppColorToken.golden.value;
+    Color foregroundColor = AppColorToken.black.value;
 
     if (_isExportingPdf) {
       buttonText = 'Exporting...';
+      backgroundColor = AppColorToken.golden.value;
+      foregroundColor = AppColorToken.black.value;
     } else if (!_canExport) {
-      buttonText = 'Export Used';
-      buttonIcon = Icons.block;
+      buttonText = 'Already Exported';
+      buttonIcon = Icons.check_circle_outline;
+      backgroundColor = AppColorToken.darkGrey.value;
+      foregroundColor =
+          AppColorToken.white.value; // Better contrast for dark theme
     }
 
     return ElevatedButton.icon(
-      onPressed: onPressed,
+      onPressed: !_canExport && !_isExportingPdf
+          ? () => _showExportUsedInfo()
+          : onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: _canExport && !_isExportingPdf
-            ? AppColorToken.golden.value
-            : AppColorToken.darkGrey.value,
-        foregroundColor: AppColorToken.black.value,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -206,7 +213,8 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
             ),
       label: Text(
         buttonText,
-        style: AppTextStyle.size(14).medium.withColor(AppColorToken.black),
+        style:
+            AppTextStyle.size(14).medium.withColor(foregroundColor.toToken()),
       ),
     );
   }
@@ -319,6 +327,83 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
         ),
       );
     }
+  }
+
+  void _showExportUsedInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColorToken.black.value,
+        title: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: AppColorToken.golden.value,
+              size: 24,
+            ),
+            12.horizontalSpace,
+            Text(
+              'Export Already Used',
+              style: AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You have already exported your yearly report for ${DateTime.now().year}.',
+              style:
+                  AppTextStyle.size(14).regular.withColor(AppColorToken.white),
+              textAlign: TextAlign.center,
+            ),
+            16.verticalSpace,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColorToken.orange.value.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColorToken.orange.value.withAlpha(100),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    color: AppColorToken.orange.value,
+                    size: 20,
+                  ),
+                  12.horizontalSpace,
+                  Expanded(
+                    child: Text(
+                      'You can export once per month. Next export will be available next month.',
+                      style: AppTextStyle.size(12)
+                          .regular
+                          .withColor(AppColorToken.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColorToken.golden.value,
+              foregroundColor: AppColorToken.black.value,
+            ),
+            child: Text(
+              'Got it',
+              style:
+                  AppTextStyle.size(14).medium.withColor(AppColorToken.black),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _showExportConfirmationDialog() async {
@@ -621,7 +706,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
                 isLast: isLast,
                 onTap: () {
                   // TODO: Add detailed view navigation
-                },  
+                },
               );
             },
           ),

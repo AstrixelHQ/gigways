@@ -29,12 +29,37 @@ class WeeklySummary {
   String get dateRange {
     final startMonth = _monthName(weekStart.month);
     final endMonth = _monthName(weekEnd.month);
-
-    if (startMonth == endMonth) {
-      return '$startMonth ${weekStart.day}-${weekEnd.day}';
-    } else {
+    
+    // Format: "Jan 1 - Jan 7" or "Jan 29 - Feb 4" for cross-month weeks
+    if (startMonth == endMonth && weekStart.year == weekEnd.year) {
+      return '$startMonth ${weekStart.day} - ${weekEnd.day}';
+    } else if (weekStart.year == weekEnd.year) {
       return '$startMonth ${weekStart.day} - $endMonth ${weekEnd.day}';
+    } else {
+      // Cross-year weeks (rare but possible)
+      return '$startMonth ${weekStart.day}, ${weekStart.year} - $endMonth ${weekEnd.day}, ${weekEnd.year}';
     }
+  }
+
+  /// Get a more descriptive title for the week
+  String get weekTitle {
+    final now = DateTime.now();
+    final currentWeekStart = _getWeekStart(now);
+    final lastWeekStart = currentWeekStart.subtract(const Duration(days: 7));
+    
+    if (weekStart.isAtSameMomentAs(currentWeekStart)) {
+      return 'This Week';
+    } else if (weekStart.isAtSameMomentAs(lastWeekStart)) {
+      return 'Last Week';
+    } else {
+      return 'Week $weekNumber';
+    }
+  }
+
+  /// Helper to get week start (Sunday)
+  static DateTime _getWeekStart(DateTime date) {
+    final weekday = date.weekday % 7; // Sunday = 0
+    return DateTime(date.year, date.month, date.day - weekday);
   }
 
   static String _monthName(int month) {
@@ -81,6 +106,52 @@ class MonthlySummary {
   });
 
   double get netEarnings => totalEarnings - totalExpenses;
+
+  /// Get formatted date range for the month
+  String get dateRange {
+    final monthEnd = DateTime(year, monthStart.month + 1, 0); // Last day of month
+    final startDay = monthStart.day;
+    final endDay = monthEnd.day;
+    
+    return '$monthName $startDay - $endDay';
+  }
+
+  /// Get a more descriptive title for the month (used for monthly tab)
+  String get monthTitle {
+    final now = DateTime.now();
+    
+    if (year == now.year && monthStart.month == now.month) {
+      return 'This Month';
+    } else if (year == now.year && monthStart.month == now.month - 1) {
+      return 'Last Month';
+    } else if (year == now.year) {
+      return monthName;
+    } else {
+      return '$monthName $year';
+    }
+  }
+
+  /// Get title for yearly tab (always includes year)
+  String get yearlyTitle {
+    return '$monthName $year';
+  }
+
+  /// Get full date range with year for yearly view
+  String get fullDateRange {
+    final monthEnd = DateTime(year, monthStart.month + 1, 0); // Last day of month
+    
+    if (year == DateTime.now().year) {
+      return '$monthName 1 - ${monthEnd.day}';
+    } else {
+      return '$monthName 1 - ${monthEnd.day}, $year';
+    }
+  }
+
+  /// Get year-specific date range for yearly tab
+  String get yearlyDateRange {
+    final monthEnd = DateTime(year, monthStart.month + 1, 0); // Last day of month
+    return '$monthName $year';
+  }
 }
 
 /// Helper class to group sessions into summaries

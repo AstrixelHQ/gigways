@@ -654,7 +654,7 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
           child: Row(
             children: [
               Text(
-                'Activity Summary',
+                _getHeaderTitle(ref.watch(selectedInsightProvider)),
                 style:
                     AppTextStyle.size(18).bold.withColor(AppColorToken.golden),
               ),
@@ -777,5 +777,18 @@ class _InsightsPageState extends ConsumerState<InsightsPage>
         ),
       ),
     );
+  }
+
+  String _getHeaderTitle(InsightPeriod period) {
+    switch (period) {
+      case InsightPeriod.today:
+        return 'Today\'s Activity';
+      case InsightPeriod.weekly:
+        return 'Weekly Summary';
+      case InsightPeriod.monthly:
+        return 'Monthly Summary';
+      case InsightPeriod.yearly:
+        return 'Yearly Overview';
+    }
   }
 }

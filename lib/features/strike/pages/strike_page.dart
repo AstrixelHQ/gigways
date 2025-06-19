@@ -115,18 +115,15 @@ class _StrikePageState extends ConsumerState<StrikePage>
                             strikeState.errorMessage ?? 'An error occurred'),
 
                   // Nationwide Strike Card - show if user has a strike, selected date, or there's a popular date
-                  if (strikeState.userStrike != null ||
-                      strikeState.selectedDate != null ||
-                      strikeState.mostPopularDate != null)
-                    NationwideStrikeCard(
-                      animationController: _animationController,
-                      onReschedule: () {
-                        setState(() {
-                          selectedDate = DateTime.now();
-                          showCalendar = true;
-                        });
-                      },
-                    ),
+                  NationwideStrikeCard(
+                    animationController: _animationController,
+                    onReschedule: () {
+                      setState(() {
+                        selectedDate = DateTime.now();
+                        showCalendar = true;
+                      });
+                    },
+                  ),
 
                   24.verticalSpace,
 
@@ -454,6 +451,19 @@ class NationwideStrikeCard extends ConsumerWidget {
           ),
           20.verticalSpace,
 
+          // Text(
+          //   'Popular Rest Dates',
+          //   style:
+          //       AppTextStyle.size(16).semiBold.withColor(AppColorToken.golden),
+          // ),
+          // 16.verticalSpace,
+
+          // Dates Display
+          // if (datesToShow.isEmpty)
+          //   const EmptyDatesWidget()
+          // else
+          //   PopularDatesCard(datesToShow: datesToShow),
+
           // Start Time
           Container(
             width: double.infinity,
@@ -744,21 +754,6 @@ class ScheduleStrikeCard extends ConsumerWidget {
 
           // Statistics Card
           StatisticsCard(strikeState: strikeState),
-          24.verticalSpace,
-
-          // Popular Dates Section
-          Text(
-            'Popular Rest Dates',
-            style:
-                AppTextStyle.size(16).semiBold.withColor(AppColorToken.golden),
-          ),
-          16.verticalSpace,
-
-          // Dates Display
-          if (datesToShow.isEmpty)
-            const EmptyDatesWidget()
-          else
-            PopularDatesCard(datesToShow: datesToShow),
           24.verticalSpace,
 
           // Choose Date Button - Only show if user doesn't have an active strike

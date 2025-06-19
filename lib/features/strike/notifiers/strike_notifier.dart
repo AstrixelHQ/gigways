@@ -57,11 +57,17 @@ class StrikeState {
   }) {
     return StrikeState(
       status: status ?? this.status,
-      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       userStrike: clearUserStrike ? null : (userStrike ?? this.userStrike),
-      selectedDate: clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
-      selectedDateStats: clearSelectedDateStats ? null : (selectedDateStats ?? this.selectedDateStats),
-      mostPopularDate: clearMostPopularDate ? null : (mostPopularDate ?? this.mostPopularDate),
+      selectedDate:
+          clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
+      selectedDateStats: clearSelectedDateStats
+          ? null
+          : (selectedDateStats ?? this.selectedDateStats),
+      mostPopularDate: clearMostPopularDate
+          ? null
+          : (mostPopularDate ?? this.mostPopularDate),
       upcomingStrikeDates: upcomingStrikeDates ?? this.upcomingStrikeDates,
       totalUsers: totalUsers ?? this.totalUsers,
       stateUsers: stateUsers ?? this.stateUsers,
@@ -128,42 +134,52 @@ class StrikeNotifier extends _$StrikeNotifier {
     state = state.copyWith(status: StrikeStatus.loading);
 
     try {
-      // Get user's active strike
+      // First, get user's active strike - this is the most important data
       final userStrike = await _repository.getUserStrike(authState.user!.uid);
 
-      // If user has an active strike, set it as the selected date
-      DateTime? selectedDate;
-      StrikeCountResult? selectedDateStats;
+      // Load user counts immediately in parallel (these are fast)
+      final userCountsFuture = Future.wait([
+        _repository.getTotalUserCount(),
+        _repository.getStateUserCount(state.userState),
+      ]);
 
-      if (userStrike != null) {
-        selectedDate = userStrike.date;
-        selectedDateStats = await _repository.getStrikeCountForDate(
-            selectedDate, state.userState);
-      }
-
-      // Get most popular strike date in the user's state
-      final mostPopularDate =
-          await _repository.getMostPopularUpcomingStrikeDate(state.userState);
-
-      // Get upcoming strike dates sorted by state count
-      final upcomingStrikeCounts =
-          await _repository.getUpcomingStrikeCounts(state.userState);
-
-      // Get user counts
-      final totalUsers = await _repository.getTotalUserCount();
-      final stateUsers = await _repository.getStateUserCount(state.userState);
-
+      // Update UI immediately with user strike and basic data
+      final userCounts = await userCountsFuture;
       state = state.copyWith(
         status: StrikeStatus.success,
         userStrike: userStrike,
-        selectedDate: selectedDate,
-        selectedDateStats: selectedDateStats,
-        mostPopularDate: mostPopularDate,
-        upcomingStrikeDates: upcomingStrikeCounts,
-        totalUsers: totalUsers,
-        stateUsers: stateUsers,
-        clearErrorMessage: true, // Clear any previous errors
+        totalUsers: userCounts[0],
+        stateUsers: userCounts[1],
+        clearErrorMessage: true,
       );
+
+      // Now handle the conditional logic based on whether user has a strike
+      if (userStrike != null) {
+        // User has a strike - get stats for their selected date
+        final selectedDate = userStrike.date;
+        final selectedDateStats = await _repository.getStrikeCountForDate(
+            selectedDate, state.userState);
+
+        state = state.copyWith(
+          selectedDate: selectedDate,
+          selectedDateStats: selectedDateStats,
+        );
+      } else {
+        // User doesn't have a strike - get popular date and upcoming dates in parallel
+        final popularDataFuture = Future.wait([
+          _repository.getMostPopularUpcomingStrikeDate(state.userState),
+          _repository.getUpcomingStrikeCounts(state.userState),
+        ]);
+
+        final popularData = await popularDataFuture;
+        final mostPopularDate = popularData[0] as StrikeCountResult?;
+        final upcomingStrikeCounts = popularData[1] as List<StrikeCountResult>;
+
+        state = state.copyWith(
+          mostPopularDate: mostPopularDate,
+          upcomingStrikeDates: upcomingStrikeCounts,
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         status: StrikeStatus.error,
@@ -220,7 +236,7 @@ class StrikeNotifier extends _$StrikeNotifier {
 
     try {
       final userId = authState.user!.uid;
-      
+
       // Create a new strike
       final newStrikeId = await _repository.createStrike(
         userId: userId,
@@ -228,7 +244,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         state: authState.userData!.state!,
         userName: authState.userData!.fullName,
       );
-      
+
       // Immediately update UI with new strike info
       final newStrike = StrikeModel(
         id: newStrikeId,
@@ -239,7 +255,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         createdAt: DateTime.now(),
         userName: authState.userData!.fullName,
       );
-      
+
       state = state.copyWith(
         status: StrikeStatus.success,
         userStrike: newStrike,
@@ -304,7 +320,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         state: authState.userData!.state!,
         userName: authState.userData!.fullName,
       );
-      
+
       // Immediately update UI with new strike info
       final newStrike = StrikeModel(
         id: newStrikeId,
@@ -315,7 +331,7 @@ class StrikeNotifier extends _$StrikeNotifier {
         createdAt: DateTime.now(),
         userName: authState.userData!.fullName,
       );
-      
+
       state = state.copyWith(
         status: StrikeStatus.success,
         userStrike: newStrike,
@@ -336,7 +352,8 @@ class StrikeNotifier extends _$StrikeNotifier {
   Future<void> cancelStrike() async {
     final authState = ref.read(authNotifierProvider);
     if (authState.user == null || state.userStrike == null) {
-      print('Cancel strike failed: User not authenticated or no strike to cancel');
+      print(
+          'Cancel strike failed: User not authenticated or no strike to cancel');
       state = state.copyWith(
         status: StrikeStatus.error,
         errorMessage: 'User not authenticated or no strike to cancel',
@@ -351,7 +368,7 @@ class StrikeNotifier extends _$StrikeNotifier {
     try {
       final userId = authState.user!.uid;
       final strikeId = state.userStrike!.id;
-      
+
       print('Canceling strike - User ID: $userId, Strike ID: $strikeId');
 
       // Cancel the strike
@@ -359,9 +376,9 @@ class StrikeNotifier extends _$StrikeNotifier {
         userId: userId,
         strikeId: strikeId,
       );
-      
+
       print('Strike canceled successfully, updating UI state immediately');
-      
+
       // Immediately clear the userStrike and update UI
       state = state.copyWith(
         status: StrikeStatus.success,
@@ -370,10 +387,10 @@ class StrikeNotifier extends _$StrikeNotifier {
         clearSelectedDateStats: true,
         clearErrorMessage: true,
       );
-      
+
       // Then refresh all data in background to get updated counts
       await _initializeStrikeData();
-      
+
       print('Data refresh completed after strike cancellation');
     } catch (e) {
       print('Error during strike cancellation: $e');

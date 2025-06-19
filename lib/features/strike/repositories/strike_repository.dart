@@ -44,27 +44,27 @@ class StrikeRepository {
 
   // Get user's scheduled strike (if any)
   Future<StrikeModel?> getUserStrike(String userId) async {
-    // Query strikes where userId matches
-    final querySnap =
-        await _strikesCollection.where('userId', isEqualTo: userId).get();
+    try {
+      final now = DateTime.now();
+      final todayString = StrikeModel.formatDateString(now);
 
-    if (querySnap.docs.isEmpty) {
-      return null;
-    }
+      // Optimized query: only fetch strikes for today or future dates
+      final querySnap = await _strikesCollection
+          .where('userId', isEqualTo: userId)
+          .where('dateString', isGreaterThanOrEqualTo: todayString)
+          .limit(1) // Only need one active strike
+          .get();
 
-    // Filter to find the strike with future date
-    final now = DateTime.now();
-    final todayString = StrikeModel.formatDateString(now);
-
-    for (final doc in querySnap.docs) {
-      final strike = StrikeModel.fromFirestore(doc);
-      // Only return strikes for today or the future
-      if (strike.dateString.compareTo(todayString) >= 0) {
-        return strike;
+      if (querySnap.docs.isEmpty) {
+        return null;
       }
-    }
 
-    return null;
+      // Return the first (and should be only) strike
+      return StrikeModel.fromFirestore(querySnap.docs.first);
+    } catch (e) {
+      print('Error fetching user strike: $e');
+      return null; // Return null if there's an error
+    }
   }
 
   // Get strike count for a specific date
@@ -123,11 +123,18 @@ class StrikeRepository {
       // Get upcoming strikes
       final querySnap = await _strikesCollection
           .where('dateString', isGreaterThanOrEqualTo: todayString)
-          .limit(100) // Limit to avoid large data fetches
+          .limit(50)
           .get();
 
       if (querySnap.docs.isEmpty) {
-        return null;
+        // Return a universal default date (7 days from now) if no popular dates exist
+        final universalDate = DateTime(now.year, now.month, now.day + 7);
+        return StrikeCountResult(
+          date: universalDate,
+          dateString: StrikeModel.formatDateString(universalDate),
+          totalCount: 0,
+          stateCount: 0,
+        );
       }
 
       // Group documents by date
@@ -155,7 +162,14 @@ class StrikeRepository {
       });
 
       if (mostPopularDateKey == null) {
-        return null;
+        // Return a universal default date (7 days from now) if no popular dates exist
+        final universalDate = DateTime(now.year, now.month, now.day + 7);
+        return StrikeCountResult(
+          date: universalDate,
+          dateString: StrikeModel.formatDateString(universalDate),
+          totalCount: 0,
+          stateCount: 0,
+        );
       }
 
       // Parse the date
@@ -177,7 +191,14 @@ class StrikeRepository {
       );
     } catch (e) {
       print('Error getting most popular strike date: $e');
-      return null;
+      // Return a universal default date (7 days from now) on error
+      final universalDate = DateTime(now.year, now.month, now.day + 7);
+      return StrikeCountResult(
+        date: universalDate,
+        dateString: StrikeModel.formatDateString(universalDate),
+        totalCount: 0,
+        stateCount: 0,
+      );
     }
   }
 
@@ -239,14 +260,15 @@ class StrikeRepository {
   }) async {
     try {
       print('Attempting to cancel strike with ID: $strikeId');
-      
+
       // Check if document exists before attempting to delete
-      final docSnapshot = await _firestore.collection('strikes').doc(strikeId).get();
+      final docSnapshot =
+          await _firestore.collection('strikes').doc(strikeId).get();
       if (!docSnapshot.exists) {
         print('Strike document does not exist: $strikeId');
         throw Exception('Strike document not found');
       }
-      
+
       print('Strike document found, proceeding with deletion');
       await _firestore.collection('strikes').doc(strikeId).delete();
       print('Strike successfully deleted: $strikeId');

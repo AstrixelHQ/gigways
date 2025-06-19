@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:gigways/features/insights/models/insight_period.dart';
@@ -18,6 +19,7 @@ class PaginatedInsightState with _$PaginatedInsightState {
   const factory PaginatedInsightState.success({
     required PaginatedInsights data,
     required List<SummaryCardData> displayData,
+    DocumentSnapshot? lastDocument,
   }) = _Success;
   const factory PaginatedInsightState.error(String message) = _Error;
 
@@ -34,11 +36,14 @@ class PaginatedInsightState with _$PaginatedInsightState {
 
   List<SummaryCardData>? get displayData =>
       this is _Success ? (this as _Success).displayData : null;
+
+  DocumentSnapshot? get lastDocument =>
+      this is _Success ? (this as _Success).lastDocument : null;
 }
 
 @Riverpod(keepAlive: true)
 class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
-  static const int _pageSize = 10;
+  static const int _pageSize = 20;
 
   @override
   PaginatedInsightState build(InsightPeriod period) {
@@ -61,21 +66,23 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
 
     try {
       final (startTime, endTime) = _getTimeRange(period);
+      final limit = _getInitialLimit(period);
 
-      // Get initial page of sessions
-      final sessions = await _repository.getSessionsForTimeRange(
-        endTime: endTime,
-        startTime: startTime,
+      // Get initial page of sessions with pagination
+      final result = await _repository.getSessionsPaginated(
         userId: userId,
+        startTime: startTime,
+        endTime: endTime,
+        limit: limit,
       );
 
-      final paginatedData = _processSessions(sessions, period);
-      final displayData =
-          _convertToDisplayData(paginatedData.summaries, period);
+      final paginatedData = _processSessions(result.sessions, period, result.hasMore);
+      final displayData = _convertToDisplayData(paginatedData.summaries, period);
 
       state = PaginatedInsightState.success(
         data: paginatedData,
         displayData: displayData,
+        lastDocument: result.lastDoc,
       );
     } catch (e) {
       state = PaginatedInsightState.error(e.toString());
@@ -102,36 +109,37 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
 
     try {
       final (startTime, endTime) = _getTimeRange(period);
+      final limit = _getInitialLimit(period);
 
-      // Get next page based on current data
-      final additionalSessions = await _getNextPage(
+      // Get next page using cursor-based pagination
+      final result = await _repository.getSessionsPaginated(
         userId: userId,
-        period: period,
-        currentData: currentState.data,
         startTime: startTime,
         endTime: endTime,
+        limit: limit,
+        startAfter: currentState.lastDocument,
       );
 
       // If no additional sessions, mark as no more data
-      if (additionalSessions.isEmpty) {
+      if (result.sessions.isEmpty) {
         final updatedData = currentState.data.copyWith(hasMore: false);
         state = PaginatedInsightState.success(
           data: updatedData,
           displayData: currentState.displayData,
+          lastDocument: currentState.lastDocument,
         );
         return;
       }
 
       // Combine with existing data
-      final allSessions =
-          _combineSessionData(currentState.data.summaries, additionalSessions);
-      final newPaginatedData = _processSessions(allSessions, period);
-      final newDisplayData =
-          _convertToDisplayData(newPaginatedData.summaries, period);
+      final allSessions = _combineSessionData(currentState.data.summaries, result.sessions);
+      final newPaginatedData = _processSessions(allSessions, period, result.hasMore);
+      final newDisplayData = _convertToDisplayData(newPaginatedData.summaries, period);
 
       state = PaginatedInsightState.success(
         data: newPaginatedData,
         displayData: newDisplayData,
+        lastDocument: result.lastDoc,
       );
     } catch (e) {
       // Restore previous state on error
@@ -139,23 +147,6 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
     }
   }
 
-  Future<List<TrackingSession>> _getNextPage({
-    required String userId,
-    required InsightPeriod period,
-    required PaginatedInsights currentData,
-    required DateTime startTime,
-    required DateTime endTime,
-  }) async {
-    // For now, implement simple offset-based pagination
-    // In production, you'd use cursor-based pagination
-    final currentCount = _getCurrentSessionCount(currentData.summaries);
-
-    return await _repository.getSessionsForTimeRange(
-      endTime: endTime,
-      startTime: startTime,
-      userId: userId,
-    );
-  }
 
   List<TrackingSession> _combineSessionData(
       List<dynamic> currentSummaries, List<TrackingSession> newSessions) {
@@ -163,7 +154,9 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
 
     // Extract sessions from current summaries
     for (final summary in currentSummaries) {
-      if (summary is WeeklySummary) {
+      if (summary is DailySummary) {
+        allSessions.addAll(summary.sessions);
+      } else if (summary is WeeklySummary) {
         allSessions.addAll(summary.sessions);
       } else if (summary is MonthlySummary) {
         allSessions.addAll(summary.sessions);
@@ -182,58 +175,42 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
     return uniqueSessions;
   }
 
-  int _getCurrentSessionCount(List<dynamic> summaries) {
-    int count = 0;
-    for (final summary in summaries) {
-      if (summary is WeeklySummary) {
-        count += summary.sessionCount;
-      } else if (summary is MonthlySummary) {
-        count += summary.sessionCount;
-      } else if (summary is TrackingSession) {
-        count += 1;
-      }
-    }
-    return count;
-  }
 
   PaginatedInsights _processSessions(
-      List<TrackingSession> sessions, InsightPeriod period) {
+      List<TrackingSession> sessions, InsightPeriod period, bool hasMore) {
     switch (period) {
       case InsightPeriod.today:
         // Show individual sessions for today
         return PaginatedInsights(
           summaries: sessions,
-          hasMore: sessions.length == _getInitialLimit(period),
+          hasMore: hasMore,
           totalCount: sessions.length,
           periodType: InsightPeriodType.daily,
         );
       case InsightPeriod.weekly:
-        // Show weekly summaries for current month (max 4-5 weeks)
-        final weeklySummaries = _groupSessionsByWeekCurrentMonth(sessions);
+        // Show 7 days worth of daily summaries
+        final dailySummaries = _groupSessionsByDay(sessions, 7);
+        return PaginatedInsights(
+          summaries: dailySummaries,
+          hasMore: hasMore,
+          totalCount: dailySummaries.length,
+          periodType: InsightPeriodType.daily,
+        );
+      case InsightPeriod.monthly:
+        // Show 4-5 weeks worth of weekly summaries
+        final weeklySummaries = _groupSessionsByWeek(sessions, 5);
         return PaginatedInsights(
           summaries: weeklySummaries,
-          hasMore: false, // Current month weeks are finite
+          hasMore: hasMore,
           totalCount: weeklySummaries.length,
           periodType: InsightPeriodType.weekly,
         );
-      case InsightPeriod.monthly:
-        // Show monthly summaries (12 months or more)
-        final monthlySummaries =
-            InsightSummaryHelper.groupSessionsByMonth(sessions);
-        return PaginatedInsights(
-          summaries: monthlySummaries,
-          hasMore: monthlySummaries.length >= 12, // May have more than 12 months
-          totalCount: monthlySummaries.length,
-          periodType: InsightPeriodType.monthly,
-        );
       case InsightPeriod.yearly:
-        // Show monthly summaries for yearly view
-        final monthlySummaries =
-            InsightSummaryHelper.groupSessionsByMonth(sessions);
+        // Show 12 months worth of monthly summaries
+        final monthlySummaries = InsightSummaryHelper.groupSessionsByMonth(sessions);
         return PaginatedInsights(
           summaries: monthlySummaries,
-          hasMore: sessions.length ==
-              _getInitialLimit(period), // Check original sessions count
+          hasMore: hasMore,
           totalCount: monthlySummaries.length,
           periodType: InsightPeriodType.monthly,
         );
@@ -243,7 +220,9 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
   List<SummaryCardData> _convertToDisplayData(
       List<dynamic> summaries, InsightPeriod period) {
     return summaries.map((summary) {
-      if (summary is WeeklySummary) {
+      if (summary is DailySummary) {
+        return SummaryCardData.fromDailySummary(summary);
+      } else if (summary is WeeklySummary) {
         return SummaryCardData.fromWeeklySummary(summary);
       } else if (summary is MonthlySummary) {
         // Pass isYearlyView = true for yearly tab
@@ -260,49 +239,102 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
 
   (DateTime, DateTime) _getTimeRange(InsightPeriod period) {
     final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    
     switch (period) {
       case InsightPeriod.today:
-        return (now.subtract(const Duration(days: 1)), now);
+        // Today's entries only
+        return (startOfToday, now);
       case InsightPeriod.weekly:
-        // Show current month's weekly records only (approximately 4 weeks)
-        final startOfMonth = DateTime(now.year, now.month, 1);
-        return (startOfMonth, now);
+        // Last 7 days
+        final weekStart = startOfToday.subtract(const Duration(days: 6));
+        return (weekStart, now);
       case InsightPeriod.monthly:
-        // Show last 12 months for monthly view
-        final startOfYear = DateTime(now.year, 1, 1);
-        return (startOfYear, now);
+        // Last 5 weeks (35 days)
+        final monthStart = startOfToday.subtract(const Duration(days: 34));
+        return (monthStart, now);
       case InsightPeriod.yearly:
-        return (now.subtract(const Duration(days: 365)), now);
+        // Last 12 months
+        final yearStart = DateTime(now.year - 1, now.month, now.day);
+        return (yearStart, now);
     }
   }
 
-  /// Group sessions by weeks but only for the current month
-  List<WeeklySummary> _groupSessionsByWeekCurrentMonth(List<TrackingSession> sessions) {
+  /// Group sessions by day for weekly view (7 days)
+  List<DailySummary> _groupSessionsByDay(List<TrackingSession> sessions, int dayCount) {
     if (sessions.isEmpty) return [];
 
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month, 1);
-    final nextMonth = DateTime(now.year, now.month + 1, 1);
+    final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: dayCount - 1));
+    
+    // Create a map for each day
+    final Map<DateTime, List<TrackingSession>> dayGroups = {};
+    
+    // Initialize all days even if empty
+    for (int i = 0; i < dayCount; i++) {
+      final dayDate = startDate.add(Duration(days: i));
+      dayGroups[dayDate] = [];
+    }
+    
+    // Group sessions by day
+    for (final session in sessions) {
+      final sessionDay = DateTime(session.startTime.year, session.startTime.month, session.startTime.day);
+      if (dayGroups.containsKey(sessionDay)) {
+        dayGroups[sessionDay]!.add(session);
+      }
+    }
 
-    // Filter sessions to current month only
-    final currentMonthSessions = sessions.where((session) {
-      return session.startTime.isAfter(currentMonth.subtract(const Duration(days: 1))) &&
-             session.startTime.isBefore(nextMonth);
-    }).toList();
+    final summaries = <DailySummary>[];
+    
+    dayGroups.forEach((day, daySessions) {
+      double totalMiles = 0;
+      double totalHours = 0;
+      double totalEarnings = 0;
+      double totalExpenses = 0;
 
-    // Group sessions by week within current month
+      for (final session in daySessions) {
+        totalMiles += session.miles;
+        totalHours += session.durationInSeconds / 3600;
+        totalEarnings += session.earnings ?? 0;
+        totalExpenses += session.expenses ?? 0;
+      }
+
+      summaries.add(DailySummary(
+        date: day,
+        totalMiles: totalMiles,
+        totalHours: totalHours,
+        totalEarnings: totalEarnings,
+        totalExpenses: totalExpenses,
+        sessionCount: daySessions.length,
+        sessions: daySessions,
+      ));
+    });
+
+    // Sort by date (newest first)
+    summaries.sort((a, b) => b.date.compareTo(a.date));
+    return summaries;
+  }
+
+  /// Group sessions by week for monthly view (5 weeks)
+  List<WeeklySummary> _groupSessionsByWeek(List<TrackingSession> sessions, int weekCount) {
+    if (sessions.isEmpty) return [];
+
+    final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: (weekCount * 7) - 1));
+    
+    // Group sessions by week
     final Map<DateTime, List<TrackingSession>> weekGroups = {};
-
-    for (final session in currentMonthSessions) {
-      final weekStart = _getWeekStartOfMonth(session.startTime, currentMonth);
+    
+    for (final session in sessions) {
+      final weekStart = _getWeekStart(session.startTime);
       weekGroups.putIfAbsent(weekStart, () => []).add(session);
     }
 
     final summaries = <WeeklySummary>[];
-
+    
     weekGroups.forEach((weekStart, weekSessions) {
       final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-
+      
       double totalMiles = 0;
       double totalHours = 0;
       double totalEarnings = 0;
@@ -315,12 +347,10 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
         totalExpenses += session.expenses ?? 0;
       }
 
-      final weekNumber = _getWeekNumberInMonth(weekStart, currentMonth);
-
       summaries.add(WeeklySummary(
         weekStart: weekStart,
         weekEnd: weekEnd,
-        weekNumber: weekNumber,
+        weekNumber: _getWeekOfYear(weekStart),
         totalMiles: totalMiles,
         totalHours: totalHours,
         totalEarnings: totalEarnings,
@@ -330,30 +360,22 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
       ));
     });
 
-    // Sort by week start date (newest first)
+    // Sort by week start (newest first)
     summaries.sort((a, b) => b.weekStart.compareTo(a.weekStart));
-
-    return summaries;
+    return summaries.take(weekCount).toList();
   }
 
-  /// Get week start for current month (weeks start on Sunday)
-  DateTime _getWeekStartOfMonth(DateTime date, DateTime monthStart) {
-    // Find the Sunday of the week containing this date
-    final weekday = date.weekday % 7; // Sunday = 0
-    final weekStart = DateTime(date.year, date.month, date.day - weekday);
-    
-    // If week starts before the current month, use month start
-    if (weekStart.isBefore(monthStart)) {
-      return monthStart;
-    }
-    
-    return weekStart;
+  /// Get week start (Monday as start of week)
+  DateTime _getWeekStart(DateTime date) {
+    final weekday = date.weekday; // Monday = 1, Sunday = 7
+    return DateTime(date.year, date.month, date.day - (weekday - 1));
   }
 
-  /// Get week number within the month (1-based)
-  int _getWeekNumberInMonth(DateTime weekStart, DateTime monthStart) {
-    final daysDifference = weekStart.difference(monthStart).inDays;
-    return (daysDifference / 7).floor() + 1;
+  /// Get week number of year
+  int _getWeekOfYear(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final daysDifference = date.difference(firstDayOfYear).inDays;
+    return (daysDifference / 7).ceil();
   }
 
   int _getInitialLimit(InsightPeriod period) {
@@ -361,11 +383,11 @@ class PaginatedInsightNotifier extends _$PaginatedInsightNotifier {
       case InsightPeriod.today:
         return _pageSize; // Individual sessions for today
       case InsightPeriod.weekly:
-        return 5; // Max 5 weeks in a month
+        return _pageSize * 2; // More sessions for 7 days
       case InsightPeriod.monthly:
-        return 12; // 12 months for monthly view
+        return _pageSize * 3; // More sessions for 5 weeks
       case InsightPeriod.yearly:
-        return _pageSize * 12; // Load enough for ~12 months of data
+        return _pageSize * 6; // More sessions for 12 months
     }
   }
 

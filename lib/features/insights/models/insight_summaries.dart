@@ -1,5 +1,69 @@
 import 'package:gigways/features/tracking/models/tracking_model.dart';
 
+/// Daily summary for weekly view
+class DailySummary {
+  final DateTime date;
+  final double totalMiles;
+  final double totalHours;
+  final double totalEarnings;
+  final double totalExpenses;
+  final int sessionCount;
+  final List<TrackingSession> sessions;
+
+  DailySummary({
+    required this.date,
+    required this.totalMiles,
+    required this.totalHours,
+    required this.totalEarnings,
+    required this.totalExpenses,
+    required this.sessionCount,
+    required this.sessions,
+  });
+
+  double get netEarnings => totalEarnings - totalExpenses;
+
+  /// Get formatted date (e.g., "Dec 15")
+  String get dateString {
+    final monthName = _monthName(date.month);
+    return '$monthName ${date.day}';
+  }
+
+  /// Get day title (Today, Yesterday, or day name)
+  String get dayTitle {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    
+    if (date.isAtSameMomentAs(today)) {
+      return 'Today';
+    } else if (date.isAtSameMomentAs(yesterday)) {
+      return 'Yesterday';
+    } else {
+      // Return day name (Mon, Tue, etc.)
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return dayNames[(date.weekday - 1) % 7];
+    }
+  }
+
+  static String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
+  }
+}
+
 /// Weekly summary for monthly view
 class WeeklySummary {
   final DateTime weekStart;

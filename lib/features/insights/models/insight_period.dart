@@ -8,11 +8,11 @@ enum InsightPeriod {
     switch (period) {
       case 'today' || 'Today':
         return InsightPeriod.today;
-      case 'weekly' || 'Weekly':
+      case 'weekly' || 'Week':
         return InsightPeriod.weekly;
-      case 'monthly' || 'Monthly':
+      case 'monthly' || 'Month':
         return InsightPeriod.monthly;
-      case 'yearly' || 'Yearly':
+      case 'yearly' || 'Year':
         return InsightPeriod.yearly;
       default:
         throw Exception('Invalid period: $period');
@@ -26,11 +26,24 @@ extension InsightPeriodExtension on InsightPeriod {
       case InsightPeriod.today:
         return 'Today';
       case InsightPeriod.weekly:
-        return 'Weekly';
+        return 'Week';
       case InsightPeriod.monthly:
-        return 'Monthly';
+        return 'Month';
       case InsightPeriod.yearly:
-        return 'Yearly';
+        return 'Year';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case InsightPeriod.today:
+        return 'All sessions today';
+      case InsightPeriod.weekly:
+        return 'Last 7 days summary';
+      case InsightPeriod.monthly:
+        return '4-5 weeks overview';
+      case InsightPeriod.yearly:
+        return '12 months breakdown';
     }
   }
 }

@@ -67,6 +67,20 @@ class SummaryCardData {
 
   double get netEarnings => totalEarnings - totalExpenses;
 
+  factory SummaryCardData.fromDailySummary(DailySummary daily) {
+    return SummaryCardData(
+      title: daily.dayTitle, // "Today", "Yesterday", or day name
+      subtitle: daily.dateString, // "Dec 15"
+      totalMiles: daily.totalMiles,
+      totalHours: daily.totalHours,
+      totalEarnings: daily.totalEarnings,
+      totalExpenses: daily.totalExpenses,
+      sessionCount: daily.sessionCount,
+      periodStart: daily.date,
+      periodEnd: daily.date.add(const Duration(hours: 23, minutes: 59, seconds: 59)),
+    );
+  }
+
   factory SummaryCardData.fromWeeklySummary(WeeklySummary weekly) {
     return SummaryCardData(
       title: weekly.weekTitle, // "This Week", "Last Week", or "Week X"

@@ -164,19 +164,31 @@ class TrackingRepository {
     return TrackingSession.fromMap(sessionData);
   }
 
-  // Get sessions for a specific time range
+  // Get sessions for a specific time range with pagination
   Future<List<TrackingSession>> getSessionsForTimeRange({
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
+    int? limit,
+    DocumentSnapshot? lastDocument,
   }) async {
     try {
-      final querySnapshot = await _userSessionsCollection(userId)
+      var query = _userSessionsCollection(userId)
           .where('startTime',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
           .where('startTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
-          .orderBy('startTime', descending: true)
-          .get();
+          .orderBy('startTime', descending: true);
+      
+      // Add pagination if provided
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+      
+      if (lastDocument != null) {
+        query = query.startAfterDocument(lastDocument);
+      }
+
+      final querySnapshot = await query.get();
 
       return querySnapshot.docs
           .map((doc) => TrackingSession.fromMap(doc.data()))
@@ -185,6 +197,46 @@ class TrackingRepository {
       // Handle error
       print('Error fetching sessions: $e');
       return [];
+    }
+  }
+
+  // Get sessions with cursor-based pagination for cost efficiency
+  Future<({List<TrackingSession> sessions, DocumentSnapshot? lastDoc, bool hasMore})> getSessionsPaginated({
+    required String userId,
+    required DateTime startTime,
+    required DateTime endTime,
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+  }) async {
+    try {
+      var query = _userSessionsCollection(userId)
+          .where('startTime',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
+          .where('startTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
+          .orderBy('startTime', descending: true)
+          .limit(limit + 1); // Get one extra to check if there are more
+      
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      final querySnapshot = await query.get();
+      final docs = querySnapshot.docs;
+      
+      // Check if there are more documents
+      final hasMore = docs.length > limit;
+      final sessionsToReturn = hasMore ? docs.take(limit).toList() : docs;
+      
+      final sessions = sessionsToReturn
+          .map((doc) => TrackingSession.fromMap(doc.data()))
+          .toList();
+      
+      final lastDoc = sessionsToReturn.isNotEmpty ? sessionsToReturn.last : null;
+      
+      return (sessions: sessions, lastDoc: lastDoc, hasMore: hasMore);
+    } catch (e) {
+      print('Error fetching paginated sessions: $e');
+      return (sessions: <TrackingSession>[], lastDoc: null, hasMore: false);
     }
   }
 

@@ -389,25 +389,81 @@ class _UpdatedInsightSectionState extends ConsumerState<InsightSection> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    final selectedPeriod = ref.watch(selectedInsightPeriodProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColorToken.black.value.withAlpha(30),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColorToken.golden.value.withAlpha(20),
+        ),
+      ),
       child: Column(
         children: [
-          Icon(
-            Icons.insights_outlined,
-            size: 32,
-            color: AppColorToken.white.value.withAlpha(100),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColorToken.golden.value.withAlpha(10),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColorToken.golden.value.withAlpha(30),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              Icons.bar_chart_outlined,
+              size: 32,
+              color: AppColorToken.golden.value.withAlpha(180),
+            ),
+          ),
+          16.verticalSpace,
+          Text(
+            'No ${selectedPeriod.displayName.toLowerCase()} data yet',
+            style: AppTextStyle.size(16).semiBold.withColor(AppColorToken.white),
           ),
           8.verticalSpace,
           Text(
-            'No insights available',
-            style: AppTextStyle.size(14).medium.withColor(AppColorToken.white),
-          ),
-          4.verticalSpace,
-          Text(
-            'Start tracking to see your insights',
-            style: AppTextStyle.size(12).regular.withColor(
+            selectedPeriod == InsightPeriod.today
+                ? 'Start tracking your drive to see insights here'
+                : 'Track more drives to build your ${selectedPeriod.displayName.toLowerCase()} insights',
+            style: AppTextStyle.size(13).regular.withColor(
                   AppColorToken.white..color.withAlpha(150),
                 ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+          ),
+          16.verticalSpace,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColorToken.golden.value.withAlpha(5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColorToken.golden.value.withAlpha(20),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  size: 16,
+                  color: AppColorToken.golden.value.withAlpha(180),
+                ),
+                8.horizontalSpace,
+                Expanded(
+                  child: Text(
+                    'Tap the tracking button above to start your first drive',
+                    style: AppTextStyle.size(12).medium.withColor(
+                          AppColorToken.golden..color.withAlpha(200),
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

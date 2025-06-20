@@ -24,11 +24,13 @@ class _StrikePageState extends ConsumerState<StrikePage>
   bool showCalendar = false;
   DateTime selectedDate = DateTime.now();
   late AnimationController _animationController;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
     // Animation controller for subtle UI effects
+    _scrollController = ScrollController();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -43,6 +45,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -71,6 +74,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SingleChildScrollView(
+              controller: _scrollController,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -116,6 +120,7 @@ class _StrikePageState extends ConsumerState<StrikePage>
 
                   // Nationwide Strike Card - show if user has a strike, selected date, or there's a popular date
                   NationwideStrikeCard(
+                    scrollController: _scrollController,
                     animationController: _animationController,
                     onReschedule: () {
                       setState(() {
@@ -321,11 +326,13 @@ class ErrorMessageWidget extends StatelessWidget {
 class NationwideStrikeCard extends ConsumerWidget {
   final AnimationController animationController;
   final VoidCallback onReschedule;
+  final ScrollController scrollController;
 
   const NationwideStrikeCard({
     Key? key,
     required this.animationController,
     required this.onReschedule,
+    required this.scrollController,
   }) : super(key: key);
 
   @override
@@ -553,9 +560,32 @@ class NationwideStrikeCard extends ConsumerWidget {
               onReschedule: onReschedule,
             )
           else if (!isUserSelectedDate)
-            JoinStrikeButton(
-              animationController: animationController,
-              displayDate: displayDate,
+            Row(
+              children: [
+                Expanded(
+                  child: JoinStrikeButton(
+                    animationController: animationController,
+                    displayDate: displayDate,
+                  ),
+                ),
+                // Choose Date Button
+                16.horizontalSpace,
+                Expanded(
+                  child: AppButton(
+                    text: 'Choose Date',
+                    onPressed: () {
+                      onReschedule();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        scrollController.animateTo(
+                          scrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ],
             ),
         ],
       ),
@@ -636,12 +666,12 @@ class UserStrikeButtons extends ConsumerWidget {
               ),
             ),
             icon: const Icon(Icons.cancel_outlined, size: 18),
-            label: const Text('Cancel Voice'),
+            label: const Text('Cancel'),
             onPressed: () {
               // Show confirmation dialog
               DeleteConfirmationDialog.show(
                 context,
-                'Cancel Voice',
+                'Cancel Rest',
                 'Are you sure you want to cancel your scheduled voice? This action cannot be undone.',
                 onDelete: () {
                   ref.read(strikeNotifierProvider.notifier).cancelStrike();
@@ -757,12 +787,12 @@ class ScheduleStrikeCard extends ConsumerWidget {
           24.verticalSpace,
 
           // Choose Date Button - Only show if user doesn't have an active strike
-          if (strikeState.userStrike == null)
-            AppButton(
-              text: 'Choose Date',
-              onPressed: onChooseDate,
-              leading: const Icon(Icons.calendar_today, size: 20),
-            ),
+          // if (strikeState.userStrike == null)
+          //   AppButton(
+          //     text: 'Choose Date',
+          //     onPressed: onChooseDate,
+          //     leading: const Icon(Icons.calendar_today, size: 20),
+          //   ),
         ],
       ),
     );
@@ -1137,7 +1167,7 @@ class CalendarView extends StatelessWidget {
               16.horizontalSpace,
               Expanded(
                 child: AppButton(
-                  text: isRescheduling ? 'Reschedule' : 'Set Voice',
+                  text: isRescheduling ? 'Reschedule' : 'Set Rest',
                   onPressed: () => onSetStrike(selectedDate),
                 ),
               ),

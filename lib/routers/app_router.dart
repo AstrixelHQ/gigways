@@ -12,6 +12,7 @@ import 'package:gigways/features/setting/models/policy_model.dart';
 import 'package:gigways/features/setting/pages/pages.dart';
 import 'package:gigways/features/strike/pages/pages.dart';
 import 'package:gigways/features/community/pages/pages.dart';
+import 'package:gigways/features/density/pages/pages.dart';
 import 'package:go_router/go_router.dart';
 
 part 'app_router.g.dart';
@@ -60,6 +61,11 @@ class VerifyEmailRoute extends GoRouteData {
       TypedGoRoute<HomeRoute>(path: HomePage.path),
     ],
   ),
+  TypedStatefulShellBranch(
+    routes: [
+      TypedGoRoute<DensityRoute>(path: DensityPage.path),
+    ],
+  ),
   // TypedStatefulShellBranch(
   //   routes: [
   //     TypedGoRoute<CommunityRoute>(path: CommunityPage.path),
@@ -97,6 +103,13 @@ class CommunityRoute extends GoRouteData {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return const CommunityPage();
+  }
+}
+
+class DensityRoute extends GoRouteData {
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const DensityPage();
   }
 }
 

@@ -130,6 +130,7 @@ class DensityBottomSheet extends StatelessWidget {
                       _buildInfoRow(
                           'Coverage Area', '~5 miles radius per hexagon'),
                       _buildInfoRow('Total Coverage', '30 miles from center'),
+                      _buildInfoRow('Grid Center', '${grid.hexagonBounds.isNotEmpty ? "${grid.hexagonBounds[0].latitude.toStringAsFixed(4)}, ${grid.hexagonBounds[0].longitude.toStringAsFixed(4)}" : "N/A"}'),
                     ],
                   ),
 

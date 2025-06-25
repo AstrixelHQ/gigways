@@ -629,16 +629,20 @@ interface CensusResponse {
   data: Array<string[]>;
 }
 
+interface GeoNamesPlace {
+  name: string;
+  adminName1: string;
+  adminName2: string;
+  population: number;
+  lat: string;
+  lng: string;
+  geonameId: number;
+  fcode?: string; // Feature code (e.g., PPL, PPLA, ADM1, etc.)
+  distance?: number; // Distance from search point
+}
+
 interface GeoNamesResponse {
-  geonames: Array<{
-    name: string;
-    adminName1: string;
-    adminName2: string;
-    population: number;
-    lat: string;
-    lng: string;
-    geonameId: number;
-  }>;
+  geonames?: GeoNamesPlace[];
 }
 
 interface DensityRequest {
@@ -739,7 +743,7 @@ function generateHexagonalGrids(
   radiusMiles: number
 ): LatLng[][] {
   const grids: LatLng[][] = [];
-  
+
   // Calculate individual hexagon size - smaller hexagons for better coverage
   const individualHexRadius = (radiusMiles * 1609.34) / 3; // Divide by 3 instead of 2 for more granular coverage
 
@@ -753,31 +757,35 @@ function generateHexagonalGrids(
 
   // Generate hexagons in multiple rings for better coverage
   // Ring 0: Center hexagon
-  // Ring 1: 6 surrounding hexagons  
+  // Ring 1: 6 surrounding hexagons
   // Ring 2: 12 more outer hexagons (total 19 hexagons)
-  
+
   const hexPositions = [];
-  
+
   // Ring 0: Center
   hexPositions.push({ offsetLat: 0, offsetLng: 0 });
-  
+
   // Ring 1: First ring (6 hexagons)
   const ring1Distance = hexRadiusLat * 1.5;
   for (let i = 0; i < 6; i++) {
     const angle = (i * 60 * Math.PI) / 180;
     hexPositions.push({
       offsetLat: ring1Distance * Math.cos(angle),
-      offsetLng: ring1Distance * Math.sin(angle) / Math.cos((centerLat * Math.PI) / 180)
+      offsetLng:
+        (ring1Distance * Math.sin(angle)) /
+        Math.cos((centerLat * Math.PI) / 180),
     });
   }
-  
+
   // Ring 2: Second ring (12 hexagons)
   const ring2Distance = hexRadiusLat * 3;
   for (let i = 0; i < 12; i++) {
     const angle = (i * 30 * Math.PI) / 180; // 30 degrees for 12 hexagons
     hexPositions.push({
       offsetLat: ring2Distance * Math.cos(angle),
-      offsetLng: ring2Distance * Math.sin(angle) / Math.cos((centerLat * Math.PI) / 180)
+      offsetLng:
+        (ring2Distance * Math.sin(angle)) /
+        Math.cos((centerLat * Math.PI) / 180),
     });
   }
 
@@ -929,10 +937,19 @@ async function fetchCensusPopulationData(
 /**
  * Fetch city information from GeoNames API
  */
+interface CityInfo {
+  name: string;
+  adminName1: string;
+  adminName2: string;
+  population: number;
+  featureCode: string;
+  distance: number;
+}
+
 async function fetchCityInformation(
   grids: LatLng[][]
-): Promise<Map<string, any>> {
-  const cityMap = new Map<string, any>();
+): Promise<Map<string, CityInfo>> {
+  const cityMap = new Map<string, CityInfo>();
 
   try {
     const gridCenters = grids.map((grid) => {
@@ -943,28 +960,50 @@ async function fetchCityInformation(
       return { lat: center.latitude, lng: center.longitude };
     });
 
-    // Batch requests to avoid rate limits
+    // Batch requests to avoid rate limits with improved accuracy
     const cityPromises = gridCenters.map(async (center, index) => {
       try {
-        const response = await httpClient.get(
-          `http://api.geonames.org/findNearbyJSON?lat=${center.lat}&lng=${center.lng}&maxRows=1&radius=10&featureClass=P&username=astrixel`
+        // First, try to get the closest populated place with a smaller radius for accuracy
+        let response = await httpClient.get(
+          `http://api.geonames.org/findNearbyJSON?lat=${center.lat}&lng=${center.lng}&maxRows=3&radius=5&featureClass=P&cities=cities1000&style=full&username=astrixel`
         );
+
+        let data = response.data as GeoNamesResponse;
+        let city: GeoNamesPlace | null = data.geonames?.[0] || null;
+
+        // If no results, try with larger radius and include smaller places
+        if (!city) {
+          response = await httpClient.get(
+            `http://api.geonames.org/findNearbyJSON?lat=${center.lat}&lng=${center.lng}&maxRows=5&radius=15&featureClass=P&style=full&username=astrixel`
+          );
+          data = response.data as GeoNamesResponse;
+          city = data.geonames?.[0] || null;
+        }
+
+        // If still no results, try administrative divisions
+        if (!city) {
+          response = await httpClient.get(
+            `http://api.geonames.org/findNearbyJSON?lat=${center.lat}&lng=${center.lng}&maxRows=3&radius=25&featureClass=A&style=full&username=astrixel`
+          );
+          data = response.data as GeoNamesResponse;
+          const places = data.geonames || [];
+          city = places.find((place) => place.fcode?.startsWith("ADM")) || null;
+        }
 
         if (response.status !== 200) {
           return { gridIndex: index, city: null };
         }
 
-        const data = response.data as GeoNamesResponse;
-        const city = data.geonames?.[0];
-
         return {
           gridIndex: index,
-          city: city
+          city: city && city.name
             ? {
                 name: city.name,
-                adminName1: city.adminName1,
-                adminName2: city.adminName2,
+                adminName1: city.adminName1 || "Unknown State", // State
+                adminName2: city.adminName2 || "Unknown County", // County
                 population: city.population || 0,
+                featureCode: city.fcode || "UNKNOWN",
+                distance: city.distance || 0,
               }
             : null,
         };
@@ -978,15 +1017,17 @@ async function fetchCityInformation(
 
     cityResults.forEach((result) => {
       const gridKey = `grid_${result.gridIndex}`;
-      cityMap.set(
-        gridKey,
-        result.city || {
-          name: "Unknown",
-          adminName1: "Unknown",
-          adminName2: "Unknown",
-          population: 0,
-        }
-      );
+      if (result.city) {
+        cityMap.set(gridKey, result.city);
+      } else {
+        // Provide a more intelligent fallback using coordinates
+        const center = gridCenters[result.gridIndex];
+        const approximateLocation = getApproximateLocationName(
+          center.lat,
+          center.lng
+        );
+        cityMap.set(gridKey, approximateLocation);
+      }
     });
 
     return cityMap;
@@ -999,6 +1040,8 @@ async function fetchCityInformation(
         adminName1: "Unknown",
         adminName2: "Unknown",
         population: 0,
+        featureCode: "UNKNOWN",
+        distance: 0,
       });
     });
     return cityMap;
@@ -1011,37 +1054,50 @@ async function fetchCityInformation(
 function calculateGridDensity(
   grids: LatLng[][],
   populationData: Map<string, number>,
-  cityData: Map<string, any>
+  cityData: Map<string, CityInfo>
 ): DensityGrid[] {
   return grids.map((grid, index) => {
     const gridKey = `grid_${index}`;
-    
+
     // Get real population data or generate realistic estimates
     let population = populationData.get(gridKey);
-    const city = cityData.get(gridKey) || {
+    const city: CityInfo = cityData.get(gridKey) || {
       name: "Unknown",
       adminName1: "Unknown",
       adminName2: "Unknown",
+      population: 0,
+      featureCode: "FALLBACK",
+      distance: 0,
     };
 
     // Always use realistic estimates for now to get proper variation
     // TODO: Re-enable real census data when variation logic is stable
     population = generateRealisticPopulation(city.name, index);
-    
+
     logger.info(`Grid ${index} (${city.name}): population=${population}`);
 
     // Calculate estimated drivers with realistic variation (0.3% - 0.5%)
     const basePercentage = 0.003; // 0.3% base
     const variationRange = 0.002; // 0.2% variation (0.3% to 0.5%)
-    
+
     // Add location-based and deterministic factors for consistent distribution
     const locationFactor = getLocationFactor(city.name, index);
     const deterministicFactor = getDeterministicFactor(city.name, population); // Consistent based on location
-    
-    const driverPercentage = basePercentage + (variationRange * locationFactor * deterministicFactor);
-    const estimatedDrivers = Math.max(1, Math.round(population * driverPercentage));
-    
-    logger.info(`Grid ${index}: ${city.name} - pop: ${population}, drivers: ${estimatedDrivers} (${(driverPercentage * 100).toFixed(2)}%)`);
+
+    const driverPercentage =
+      basePercentage + variationRange * locationFactor * deterministicFactor;
+    const estimatedDrivers = Math.max(
+      1,
+      Math.round(population * driverPercentage)
+    );
+
+    logger.info(
+      `Grid ${index}: ${city.name}, ${city.adminName2}, ${
+        city.adminName1
+      } - pop: ${population}, drivers: ${estimatedDrivers} (${(
+        driverPercentage * 100
+      ).toFixed(2)}%) [${city.featureCode || "N/A"}]`
+    );
 
     // Determine density level with more realistic thresholds
     let level: "low" | "moderate" | "high" = "low";
@@ -1064,8 +1120,8 @@ function calculateGridDensity(
       estimatedDrivers,
       level,
       cityName: city.name,
-      countyName: city.adminName2 || "Unknown County",
-      stateName: city.adminName1 || "Unknown State",
+      countyName: city.adminName2,
+      stateName: city.adminName1,
       lastUpdated: Timestamp.now(),
     };
   });
@@ -1074,31 +1130,248 @@ function calculateGridDensity(
 /**
  * Generate realistic population estimates based on area characteristics
  */
-function generateRealisticPopulation(cityName: string, gridIndex: number): number {
+function generateRealisticPopulation(
+  cityName: string,
+  gridIndex: number
+): number {
   const basePop = 3000;
   const cityLower = cityName.toLowerCase();
-  
+
   // Urban areas tend to have higher population density
-  const urbanKeywords = ['san francisco', 'downtown', 'central', 'mission', 'soma', 'financial'];
-  const suburbanKeywords = ['residential', 'suburb', 'heights', 'hills', 'park', 'garden'];
-  const commercialKeywords = ['business', 'commercial', 'industrial', 'tech', 'campus'];
-  
+  const urbanKeywords = [
+    "san francisco",
+    "downtown",
+    "central",
+    "mission",
+    "soma",
+    "financial",
+  ];
+  const suburbanKeywords = [
+    "residential",
+    "suburb",
+    "heights",
+    "hills",
+    "park",
+    "garden",
+  ];
+  const commercialKeywords = [
+    "business",
+    "commercial",
+    "industrial",
+    "tech",
+    "campus",
+  ];
+
   let multiplier = 1.0;
-  
-  if (urbanKeywords.some(keyword => cityLower.includes(keyword))) {
-    multiplier = 1.8 + (Math.random() * 0.4); // 1.8x - 2.2x for urban
-  } else if (commercialKeywords.some(keyword => cityLower.includes(keyword))) {
-    multiplier = 1.4 + (Math.random() * 0.3); // 1.4x - 1.7x for commercial
-  } else if (suburbanKeywords.some(keyword => cityLower.includes(keyword))) {
-    multiplier = 0.7 + (Math.random() * 0.4); // 0.7x - 1.1x for suburban
+
+  if (urbanKeywords.some((keyword) => cityLower.includes(keyword))) {
+    multiplier = 1.8 + Math.random() * 0.4; // 1.8x - 2.2x for urban
+  } else if (
+    commercialKeywords.some((keyword) => cityLower.includes(keyword))
+  ) {
+    multiplier = 1.4 + Math.random() * 0.3; // 1.4x - 1.7x for commercial
+  } else if (suburbanKeywords.some((keyword) => cityLower.includes(keyword))) {
+    multiplier = 0.7 + Math.random() * 0.4; // 0.7x - 1.1x for suburban
   } else {
-    multiplier = 0.8 + (Math.random() * 0.6); // 0.8x - 1.4x for general areas
+    multiplier = 0.8 + Math.random() * 0.6; // 0.8x - 1.4x for general areas
   }
-  
+
   // Add some randomness for neighboring grids
-  const neighboringVariation = 0.7 + (Math.random() * 0.6); // ±30% variation
-  
+  const neighboringVariation = 0.7 + Math.random() * 0.6; // ±30% variation
+
   return Math.round(basePop * multiplier * neighboringVariation);
+}
+
+/**
+ * Get approximate location name based on coordinates for fallback purposes
+ */
+function getApproximateLocationName(lat: number, lng: number): CityInfo {
+  // Major US metro areas and their approximate coordinate ranges
+  const metroAreas = [
+    {
+      name: "San Francisco",
+      state: "California",
+      county: "San Francisco County",
+      latMin: 37.6,
+      latMax: 37.9,
+      lngMin: -122.6,
+      lngMax: -122.3,
+    },
+    {
+      name: "Los Angeles",
+      state: "California",
+      county: "Los Angeles County",
+      latMin: 33.9,
+      latMax: 34.3,
+      lngMin: -118.7,
+      lngMax: -118.1,
+    },
+    {
+      name: "New York",
+      state: "New York",
+      county: "New York County",
+      latMin: 40.4,
+      latMax: 40.9,
+      lngMin: -74.3,
+      lngMax: -73.7,
+    },
+    {
+      name: "Chicago",
+      state: "Illinois",
+      county: "Cook County",
+      latMin: 41.6,
+      latMax: 42.1,
+      lngMin: -88.0,
+      lngMax: -87.5,
+    },
+    {
+      name: "Houston",
+      state: "Texas",
+      county: "Harris County",
+      latMin: 29.5,
+      latMax: 30.1,
+      lngMin: -95.8,
+      lngMax: -95.0,
+    },
+    {
+      name: "Phoenix",
+      state: "Arizona",
+      county: "Maricopa County",
+      latMin: 33.2,
+      latMax: 33.8,
+      lngMin: -112.4,
+      lngMax: -111.6,
+    },
+    {
+      name: "Philadelphia",
+      state: "Pennsylvania",
+      county: "Philadelphia County",
+      latMin: 39.8,
+      latMax: 40.1,
+      lngMin: -75.4,
+      lngMax: -74.9,
+    },
+    {
+      name: "San Antonio",
+      state: "Texas",
+      county: "Bexar County",
+      latMin: 29.2,
+      latMax: 29.7,
+      lngMin: -98.8,
+      lngMax: -98.3,
+    },
+    {
+      name: "San Diego",
+      state: "California",
+      county: "San Diego County",
+      latMin: 32.5,
+      latMax: 33.0,
+      lngMin: -117.4,
+      lngMax: -116.9,
+    },
+    {
+      name: "Dallas",
+      state: "Texas",
+      county: "Dallas County",
+      latMin: 32.6,
+      latMax: 33.0,
+      lngMin: -97.0,
+      lngMax: -96.5,
+    },
+  ];
+
+  // Check if coordinates fall within any major metro area
+  for (const metro of metroAreas) {
+    if (
+      lat >= metro.latMin &&
+      lat <= metro.latMax &&
+      lng >= metro.lngMin &&
+      lng <= metro.lngMax
+    ) {
+      return {
+        name: metro.name,
+        adminName1: metro.state,
+        adminName2: metro.county,
+        population: 0,
+        featureCode: "METRO_APPROX",
+        distance: 0,
+      };
+    }
+  }
+
+  // Fallback to general state-based approximation
+  const stateApproximations = [
+    {
+      name: "California",
+      latMin: 32.5,
+      latMax: 42.0,
+      lngMin: -124.5,
+      lngMax: -114.1,
+    },
+    {
+      name: "Texas",
+      latMin: 25.8,
+      latMax: 36.5,
+      lngMin: -106.6,
+      lngMax: -93.5,
+    },
+    {
+      name: "Florida",
+      latMin: 24.4,
+      latMax: 31.0,
+      lngMin: -87.6,
+      lngMax: -80.0,
+    },
+    {
+      name: "New York",
+      latMin: 40.4,
+      latMax: 45.0,
+      lngMin: -79.8,
+      lngMax: -71.8,
+    },
+    {
+      name: "Pennsylvania",
+      latMin: 39.7,
+      latMax: 42.3,
+      lngMin: -80.5,
+      lngMax: -74.7,
+    },
+    {
+      name: "Illinois",
+      latMin: 36.9,
+      latMax: 42.5,
+      lngMin: -91.5,
+      lngMax: -87.0,
+    },
+    { name: "Ohio", latMin: 38.4, latMax: 42.3, lngMin: -84.8, lngMax: -80.5 },
+  ];
+
+  for (const state of stateApproximations) {
+    if (
+      lat >= state.latMin &&
+      lat <= state.latMax &&
+      lng >= state.lngMin &&
+      lng <= state.lngMax
+    ) {
+      return {
+        name: `Location in ${state.name}`,
+        adminName1: state.name,
+        adminName2: "Unknown County",
+        population: 0,
+        featureCode: "STATE_APPROX",
+        distance: 0,
+      };
+    }
+  }
+
+  return {
+    name: `Location at ${lat.toFixed(3)}, ${lng.toFixed(3)}`,
+    adminName1: "Unknown State",
+    adminName2: "Unknown County",
+    population: 0,
+    featureCode: "COORD_APPROX",
+    distance: 0,
+  };
 }
 
 /**
@@ -1110,10 +1383,10 @@ function getDeterministicFactor(cityName: string, population: number): number {
   const str = cityName + population.toString();
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
-  
+
   // Convert hash to a value between 0-1
   return Math.abs(hash % 1000) / 1000;
 }
@@ -1123,27 +1396,51 @@ function getDeterministicFactor(cityName: string, population: number): number {
  */
 function getLocationFactor(cityName: string, gridIndex: number): number {
   const cityLower = cityName.toLowerCase();
-  
+
   // High driver activity areas (business districts, airports, entertainment)
-  const highActivityKeywords = ['downtown', 'financial', 'airport', 'station', 'mall', 'center', 'plaza'];
+  const highActivityKeywords = [
+    "downtown",
+    "financial",
+    "airport",
+    "station",
+    "mall",
+    "center",
+    "plaza",
+  ];
   // Medium activity areas (residential with good transit)
-  const mediumActivityKeywords = ['mission', 'castro', 'haight', 'richmond', 'sunset'];
+  const mediumActivityKeywords = [
+    "mission",
+    "castro",
+    "haight",
+    "richmond",
+    "sunset",
+  ];
   // Lower activity areas (quiet residential, hills)
-  const lowActivityKeywords = ['heights', 'hills', 'park', 'residential', 'quiet'];
-  
+  const lowActivityKeywords = [
+    "heights",
+    "hills",
+    "park",
+    "residential",
+    "quiet",
+  ];
+
   // Use deterministic factor based on city name for consistency
   const deterministicVariation = getDeterministicFactor(cityName, gridIndex);
-  
-  if (highActivityKeywords.some(keyword => cityLower.includes(keyword))) {
-    return 0.8 + (deterministicVariation * 0.2); // 0.8 - 1.0 (high activity)
-  } else if (mediumActivityKeywords.some(keyword => cityLower.includes(keyword))) {
-    return 0.5 + (deterministicVariation * 0.3); // 0.5 - 0.8 (medium activity)  
-  } else if (lowActivityKeywords.some(keyword => cityLower.includes(keyword))) {
-    return 0.2 + (deterministicVariation * 0.3); // 0.2 - 0.5 (low activity)
+
+  if (highActivityKeywords.some((keyword) => cityLower.includes(keyword))) {
+    return 0.8 + deterministicVariation * 0.2; // 0.8 - 1.0 (high activity)
+  } else if (
+    mediumActivityKeywords.some((keyword) => cityLower.includes(keyword))
+  ) {
+    return 0.5 + deterministicVariation * 0.3; // 0.5 - 0.8 (medium activity)
+  } else if (
+    lowActivityKeywords.some((keyword) => cityLower.includes(keyword))
+  ) {
+    return 0.2 + deterministicVariation * 0.3; // 0.2 - 0.5 (low activity)
   } else {
     // Default areas with center-distance factor
     const centerDistance = Math.abs(gridIndex - 3); // Distance from center grid
-    return Math.max(0.3, 0.9 - (centerDistance * 0.15)); // Decreases with distance from center
+    return Math.max(0.3, 0.9 - centerDistance * 0.15); // Decreases with distance from center
   }
 }
 

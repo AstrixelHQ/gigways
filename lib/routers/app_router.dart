@@ -154,6 +154,14 @@ class NotificationRoute extends GoRouteData {
   }
 }
 
+@TypedGoRoute<PermissionsRoute>(path: PermissionsPage.path)
+class PermissionsRoute extends GoRouteData {
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return const PermissionsPage();
+  }
+}
+
 @TypedGoRoute<FaqRoute>(path: FaqPage.path)
 class FaqRoute extends GoRouteData {
   @override

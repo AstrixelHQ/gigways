@@ -121,7 +121,7 @@ class InsightSummaryService {
         thisMonth: _calculatePeriodInsights(monthSessions, monthStart),
         thisYear: _calculatePeriodInsights(yearSessions, yearStart),
         lastUpdated: now,
-        version: 0, // Indicate this is calculated, not from summary
+        version: 1, // Use version 1 since calculated data is still valid
         validation: ValidationMeta.initial(),
       );
     } catch (e) {

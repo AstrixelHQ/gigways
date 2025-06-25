@@ -221,7 +221,7 @@ class InsightSummaryNotifier extends _$InsightSummaryNotifier {
     
     // Force refresh if:
     // 1. Last update was on a different day (to ensure today's data is current)
-    // 2. Using fallback data (version 0)
+    // 2. Using fallback data (version 0 - should rarely happen now)
     // 3. Monthly validation is needed
     final isDifferentDay = lastUpdated.day != now.day || 
                           lastUpdated.month != now.month || 

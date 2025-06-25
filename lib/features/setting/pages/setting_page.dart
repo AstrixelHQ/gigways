@@ -8,6 +8,7 @@ import 'package:gigways/core/widgets/gradient_avatar.dart';
 import 'package:gigways/core/widgets/scaffold_wrapper.dart';
 import 'package:gigways/features/auth/notifiers/auth_notifier.dart';
 import 'package:gigways/routers/app_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -90,6 +91,10 @@ class SettingsPage extends ConsumerWidget {
                         textColor: AppColorToken.black.value,
                       ),
                     ),
+
+                    // Version Information
+                    _buildVersionInfo(),
+                    16.verticalSpace,
                   ],
                 ),
               ),
@@ -104,7 +109,7 @@ class SettingsPage extends ConsumerWidget {
     final items = [
       (Icons.person_outline, 'Update Profile'),
       (Icons.calendar_today_outlined, 'Update Schedule'),
-      // (Icons.notifications_none_outlined, 'Notification'),
+      (Icons.security_outlined, 'Permissions'),
       (Icons.info_outline, 'FAQ'),
       (Icons.lock_outline, 'Legal and Policies'),
       (Icons.share_outlined, 'Share with Other!'),
@@ -120,8 +125,8 @@ class SettingsPage extends ConsumerWidget {
               UpdateProfileRoute().push(context);
             } else if (item.$2 == 'Update Schedule') {
               UpdateScheduleRoute().push(context);
-            } else if (item.$2 == 'Notification') {
-              // NotificationRoute().push(context);
+            } else if (item.$2 == 'Permissions') {
+              PermissionsRoute().push(context);
             } else if (item.$2 == 'FAQ') {
               FaqRoute().push(context);
             } else if (item.$2 == 'Legal and Policies') {
@@ -148,6 +153,67 @@ class SettingsPage extends ConsumerWidget {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildVersionInfo() {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          final packageInfo = snapshot.data!;
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColorToken.white.value.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColorToken.white.value.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'App Version',
+                      style: AppTextStyle.size(14).medium.withColor(
+                          AppColorToken.white..value.withOpacity(0.8)),
+                    ),
+                    Text(
+                      'v${packageInfo.version}',
+                      style: AppTextStyle.size(14)
+                          .semiBold
+                          .withColor(AppColorToken.golden),
+                    ),
+                  ],
+                ),
+                8.verticalSpace,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Build Number',
+                      style: AppTextStyle.size(14).medium.withColor(
+                          AppColorToken.white..value.withOpacity(0.8)),
+                    ),
+                    Text(
+                      '#${packageInfo.buildNumber}',
+                      style: AppTextStyle.size(14)
+                          .semiBold
+                          .withColor(AppColorToken.golden),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        } else {
+          return const SizedBox.shrink();
+        }
+      },
+    );
   }
 
   void _showLogoutConfirmation(BuildContext context, WidgetRef ref) {
